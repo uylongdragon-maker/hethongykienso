@@ -1,0 +1,46 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Bảng dữ liệu Kiến nghị
+model Petition {
+  id              String    @id @default(cuid())
+  petitionCode    String    @unique // Mã vụ việc: KN2026-001, GS2026-015...
+  source          String    // Nguồn tiếp nhận
+
+  // Thông tin người gửi
+  senderName      String    // Họ tên người gửi
+  senderAddress   String    // Địa chỉ liên hệ
+  senderPhone     String?   // Số điện thoại (không bắt buộc)
+
+  category        String    // Lĩnh vực (Đô thị, Đất đai, Môi trường, An ninh trật tự, Chế độ chính sách)
+  location        String    // Địa chỉ nơi phản ánh (chứa text địa chỉ & GPS tọa độ)
+  content         String    @db.Text // Nội dung kiến nghị
+  attachmentUrl   String?   // Đường dẫn tài liệu đính kèm (nếu có)
+
+  // Thẩm quyền & Đơn vị trực tiếp
+  authority       String    // Thẩm quyền xử lý (Phường hoặc Sở ban ngành TP)
+  department      String    // Đơn vị xử lý trực tiếp cấp phường (phòng chuyên môn)
+
+  // Thời hạn
+  receivedDate    DateTime  // Ngày tiếp nhận
+  deadline        DateTime  // Thời hạn giải quyết
+  extendedUntil   DateTime? // Thời gian gia hạn (nếu có)
+
+  // Trạng thái & Văn bản
+  status          String    // Trạng thái xử lý: Đang xử lý, Đã xong, Đang chờ ý kiến cấp trên, Quá hạn
+  replyDocNumber  String?   // Số hiệu văn bản trả lời
+  replyDocDate    DateTime? // Ngày ban hành văn bản trả lời
+  replyDocLink    String?   // Link văn bản trả lời
+
+  // Rà soát kết quả
+  reviewStatus    String    // Rà soát: Hoàn thành, Chưa giải quyết, Mới giải quyết 1 phần
+  notes           String?   // Ghi chú
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
