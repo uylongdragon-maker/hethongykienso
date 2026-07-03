@@ -164,13 +164,13 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
 
       <div className="form-group">
         <label className="form-label">
-          Địa chỉ liên hệ của người gửi (Tự động chuẩn hóa về Phường Bình Đông, lọc bỏ KP23)
+          Địa chỉ liên hệ của người gửi (Tự động chuẩn hóa về Phường Bình Đông, TP. Hồ Chí Minh)
         </label>
         <input
           type="text"
           required
           className="form-control"
-          placeholder="Ví dụ: 1111 Tạ Quang Bửu, KP23..."
+          placeholder="Ví dụ: 1111 Tạ Quang Bửu..."
           value={senderAddress}
           onChange={(e) => setSenderAddress(e.target.value)}
         />

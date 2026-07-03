@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// Hàm chuẩn hóa địa chỉ: Loại bỏ "Khu phố 23" hoặc "KP23" và nối thêm đuôi Phường Bình Đông, TP. Hồ Chí Minh
+// Hàm chuẩn hóa địa chỉ về chuẩn Phường Bình Đông, TP. Hồ Chí Minh
 function sanitizeAddress(address: string): string {
   if (!address) return "";
-  
-  // 1. Loại bỏ "Khu phố 23" hoặc "KP23" (không phân biệt hoa thường)
-  let cleaned = address.replace(/khu\s*phố\s*23|kp\s*23/gi, "");
-  
-  // Dọn dẹp khoảng trống, dấu phẩy thừa do thay thế
-  cleaned = cleaned.replace(/,\s*,/g, ",").replace(/^\s*,|,\s*$/g, "").trim();
 
-  // 2. Loại bỏ các phần phường/thành phố trùng lặp nếu người dùng lỡ nhập vào trước
-  cleaned = cleaned.replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "");
-  cleaned = cleaned.replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "");
-  cleaned = cleaned.replace(/(,\s*)?tp\.?\s*hcm/gi, "");
-  cleaned = cleaned.trim();
+  let cleaned = address
+    // Loại bỏ "Khu phố 23" hoặc "KP23" các biến thể
+    .replace(/khu\s*phố\s*23|kp\s*23/gi, "")
+    // Loại bỏ Phường Bình Đông / Chánh Hưng nếu đã có (tránh lặp đuôi)
+    .replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "")
+    .replace(/(,\s*)?(phường\s*)?chánh\s*hưng(\s*ward)?/gi, "")
+    // Loại bỏ tên thành phố nếu đã có
+    .replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "")
+    .replace(/(,\s*)?tp\.?\s*hcm/gi, "")
+    .replace(/(,\s*)?ho\s*chi\s*minh(\s*city)?/gi, "")
+    // Dọn dấu phẩy và khoảng trắng thừa
+    .replace(/,\s*,/g, ",")
+    .replace(/^\s*,|,\s*$/g, "")
+    .trim();
 
-  // Nối đuôi địa chỉ chuẩn hóa bắt buộc
   return `${cleaned}, Phường Bình Đông, TP. Hồ Chí Minh`;
 }
 
