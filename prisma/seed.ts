@@ -13,11 +13,13 @@ function sanitizeAddress(address: string): string {
   if (!address) return "";
   let cleaned = address.replace(/khu\s*phố\s*23|kp\s*23/gi, "");
   cleaned = cleaned.replace(/,\s*,/g, ",").replace(/^\s*,|,\s*$/g, "").trim();
-  cleaned = cleaned.replace(/(,\s*)?chánh\s*hưng(\s*ward)?/gi, "");
-  cleaned = cleaned.replace(/(,\s*)?ho\s*chi\s*minh(\s*city)?/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?(phường\s*)?chánh\s*hưng/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "");
   cleaned = cleaned.replace(/(,\s*)?tp\.?\s*hcm/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?ho\s*chi\s*minh(\s*city)?/gi, "");
   cleaned = cleaned.trim();
-  return `${cleaned}, Chánh Hưng Ward, Ho Chi Minh City`;
+  return `${cleaned}, Phường Bình Đông, TP. Hồ Chí Minh`;
 }
 
 async function main() {
@@ -54,7 +56,7 @@ async function main() {
       senderPhone: null,
       senderAddress: sanitizeAddress("456 Phạm Thế Hiển"),
       category: "Chế độ chính sách",
-      location: "Trường Tiểu học Chánh Hưng",
+      location: "Trường Tiểu học Bình Đông, Phường Bình Đông, TP. Hồ Chí Minh",
       content: "Quà tết cho hộ nghèo",
       authority: "UBND phường",
       department: "Phòng Văn hóa - Xã hội",
