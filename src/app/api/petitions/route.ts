@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// Hàm chuẩn hóa địa chỉ: Loại bỏ "Khu phố 23" hoặc "KP23" và nối thêm đuôi Quận 8, HCM
+// Hàm chuẩn hóa địa chỉ: Loại bỏ "Khu phố 23" hoặc "KP23" và nối thêm đuôi Phường Bình Đông, TP. Hồ Chí Minh
 function sanitizeAddress(address: string): string {
   if (!address) return "";
   
@@ -12,13 +12,13 @@ function sanitizeAddress(address: string): string {
   cleaned = cleaned.replace(/,\s*,/g, ",").replace(/^\s*,|,\s*$/g, "").trim();
 
   // 2. Loại bỏ các phần phường/thành phố trùng lặp nếu người dùng lỡ nhập vào trước
-  cleaned = cleaned.replace(/(,\s*)?chánh\s*hưng(\s*ward)?/gi, "");
-  cleaned = cleaned.replace(/(,\s*)?ho\s*chi\s*minh(\s*city)?/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "");
+  cleaned = cleaned.replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "");
   cleaned = cleaned.replace(/(,\s*)?tp\.?\s*hcm/gi, "");
   cleaned = cleaned.trim();
 
   // Nối đuôi địa chỉ chuẩn hóa bắt buộc
-  return `${cleaned}, Chánh Hưng Ward, Ho Chi Minh City`;
+  return `${cleaned}, Phường Bình Đông, TP. Hồ Chí Minh`;
 }
 
 // Hàm sinh mã vụ việc tiếp theo: [Prefix]YYYY-NNN
@@ -161,6 +161,9 @@ export async function POST(req: NextRequest) {
     // Chuẩn hóa địa chỉ liên hệ của người gửi
     const sanitizedAddress = sanitizeAddress(senderAddress);
 
+    // Chuẩn hóa địa bàn nơi phản ánh (giữ tọa độ GPS nếu có, chuẩn hóa phần địa chỉ)
+    const sanitizedLocation = sanitizeAddress(incidentAddress);
+
     // Trạng thái ban đầu
     const initialStatus = "Đang xử lý";
 
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest) {
         senderPhone: senderPhone || null,
         senderAddress: sanitizedAddress,
         category,
-        location: incidentAddress,
+        location: sanitizedLocation,
         content,
         attachmentUrl: attachmentUrl || null,
         authority,

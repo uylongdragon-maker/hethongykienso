@@ -110,7 +110,9 @@ export default async function PetitionDetailPage({ params }: PageProps) {
 
             <div>
               <span className="detail-meta-label">Thẩm quyền xử lý</span>
-              <span style={{ fontSize: "0.9rem", fontWeight: "600" }}>{petition.authority}</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: "600" }}>
+                {petition.authority === "UBND phường" ? "Phường Bình Đông" : petition.authority}
+              </span>
             </div>
 
             <div>

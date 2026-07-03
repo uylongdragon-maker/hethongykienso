@@ -113,8 +113,10 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
       const extended = pet.extendedUntil ? formatDate(pet.extendedUntil) : "";
       const replyDoc = pet.replyDocNumber || "";
       const notes = pet.notes || "";
+      // Hiển thị tên chuẩn cho thẩm quyền xử lý
+      const authorityDisplay = pet.authority === "UBND phường" ? "Phường Bình Đông" : pet.authority;
       
-      csv += `${index + 1},${pet.petitionCode},"${pet.source}","${pet.senderName}","${pet.senderAddress}","${phone}","${pet.category}","${pet.location}","${pet.content.replace(/"/g, '""')}\","${pet.authority}","${pet.department}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","${extended}","${pet.status}","${replyDoc}","${notes}"\n`;
+      csv += `${index + 1},${pet.petitionCode},"${pet.source}","${pet.senderName}","${pet.senderAddress}","${phone}","${pet.category}","${pet.location}","${pet.content.replace(/"/g, '""')}","${authorityDisplay}","${pet.department}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","${extended}","${pet.status}","${replyDoc}","${notes}"\n`;
     });
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -127,9 +129,75 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     document.body.removeChild(link);
   };
 
+  const handleExportOfficialLetter = () => {
+    // Tạo nội dung công văn gửi các phòng ban dưới dạng CSV
+    let csv = "STT,Mã vụ việc,Nội dung kiến nghị,Đơn vị xử lý trực tiếp,Thẩm quyền xử lý,Ngày tiếp nhận,Hạn giải quyết,Trạng thái,Ghi chú yêu cầu\n";
+    const pending = filteredPetitions.filter((p) => p.status !== "Đã xong");
+    pending.forEach((pet, index) => {
+      const notes = pet.notes || "";
+      csv += `${index + 1},${pet.petitionCode},"${pet.content.replace(/"/g, '""')}","${pet.department}","${pet.authority}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","${pet.status}","${notes}"\n`;
+    });
+
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `cong_van_gui_phong_ban_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleFormSuccess = () => {
     setIsCreateOpen(false);
     router.refresh();
+  };
+
+  // Cập nhật tiến độ nhanh (inline)
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [quickStatus, setQuickStatus] = useState("");
+  const [quickNotes, setQuickNotes] = useState("");
+  const [quickExtendedUntil, setQuickExtendedUntil] = useState("");
+  const [quickReplyDocNumber, setQuickReplyDocNumber] = useState("");
+  const [quickReplyDocLink, setQuickReplyDocLink] = useState("");
+  const [quickLoading, setQuickLoading] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
+
+  const openQuickUpdate = (pet: SerializedPetition) => {
+    setUpdatingId(pet.id);
+    setQuickStatus(pet.status);
+    setQuickNotes(pet.notes || "");
+    setQuickExtendedUntil(pet.extendedUntil ? pet.extendedUntil.split("T")[0] : "");
+    setQuickReplyDocNumber(pet.replyDocNumber || "");
+    setQuickReplyDocLink(pet.replyDocLink || "");
+    setQuickError(null);
+  };
+
+  const handleQuickUpdate = async () => {
+    if (!updatingId) return;
+    setQuickLoading(true);
+    setQuickError(null);
+    try {
+      const res = await fetch(`/api/petitions/${updatingId}/quick-update`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: quickStatus,
+          notes: quickNotes,
+          extendedUntil: quickExtendedUntil || null,
+          replyDocNumber: quickReplyDocNumber || null,
+          replyDocLink: quickReplyDocLink || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Có lỗi xảy ra.");
+      setUpdatingId(null);
+      router.refresh();
+    } catch (err: any) {
+      setQuickError(err.message || "Không thể cập nhật.");
+    } finally {
+      setQuickLoading(false);
+    }
   };
 
   return (
@@ -139,7 +207,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
           <h1 className="page-title">Sổ theo dõi & Giám sát vụ việc</h1>
           <p className="page-subtitle">Sổ chi tiết theo dõi tiến độ giải quyết kiến nghị cử tri</p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button onClick={() => setIsCreateOpen(true)} className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
             Tiếp nhận kiến nghị
@@ -147,6 +215,10 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
           <button onClick={handleExportCSV} className="btn btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
+          </button>
+          <button onClick={handleExportOfficialLetter} className="btn btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderColor: "var(--info)", color: "var(--info)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Công văn gửi các phòng ban
           </button>
           <button onClick={() => window.print()} className="btn btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -306,9 +378,20 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                         {pet.notes || "-"}
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <a href={`/petitions/${pet.id}`} className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.75rem" }}>
-                          Cập nhật
-                        </a>
+                        <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center" }}>
+                          <button
+                            onClick={() => openQuickUpdate(pet)}
+                            className="btn btn-secondary"
+                            style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem", display: "inline-flex", alignItems: "center", gap: "0.25rem", backgroundColor: "var(--info-bg)", color: "var(--info)", borderColor: "var(--info)" }}
+                            title="Cập nhật tiến độ nhanh"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            Tiến độ
+                          </button>
+                          <a href={`/petitions/${pet.id}`} className="btn btn-secondary" style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem" }}>
+                            Chi tiết
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -329,6 +412,106 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
             </div>
             <div className="modal-body">
               <PetitionForm onSuccess={handleFormSuccess} onCancel={() => setIsCreateOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cập nhật tiến độ nhanh */}
+      {updatingId && (
+        <div className="modal-overlay" onClick={() => setUpdatingId(null)}>
+          <div
+            className="modal-content glass-card"
+            style={{ maxWidth: "480px", width: "90vw" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "0.5rem", verticalAlign: "middle" }}>
+                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                Cập nhật tiến độ
+              </h3>
+              <button className="modal-close" onClick={() => setUpdatingId(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {quickError && (
+                <div style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)", padding: "0.75rem 1rem", borderRadius: "var(--radius-md)", marginBottom: "1rem", fontSize: "0.875rem", border: "1px solid rgba(225,29,72,0.2)" }}>
+                  {quickError}
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Trạng thái giải quyết</label>
+                <select
+                  className="form-control"
+                  value={quickStatus}
+                  onChange={(e) => setQuickStatus(e.target.value)}
+                >
+                  <option value="Đang xử lý">Đang xử lý</option>
+                  <option value="Đã xong">Đã xong</option>
+                  <option value="Đang chờ ý kiến cấp trên">Đang chờ ý kiến cấp trên</option>
+                  <option value="Quá hạn">Quá hạn</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Thời hạn gia hạn giải quyết (nếu có)</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={quickExtendedUntil}
+                  onChange={(e) => setQuickExtendedUntil(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Văn bản trả lời (Số hiệu văn bản)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ví dụ: Số 12/UBND, Đang chờ Cty DVCI..."
+                  value={quickReplyDocNumber}
+                  onChange={(e) => setQuickReplyDocNumber(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Link văn bản trả lời (Đường dẫn PDF, nếu có)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ví dụ: https://example.com/reply.pdf"
+                  value={quickReplyDocLink}
+                  onChange={(e) => setQuickReplyDocLink(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ghi chú tiến độ (tùy chọn)</label>
+                <textarea
+                  className="form-control form-textarea"
+                  rows={2}
+                  placeholder="Nhập ghi chú về tiến độ giải quyết..."
+                  value={quickNotes}
+                  onChange={(e) => setQuickNotes(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setUpdatingId(null)}
+                  className="btn btn-secondary"
+                  style={{ flexGrow: 1 }}
+                  disabled={quickLoading}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleQuickUpdate}
+                  className="btn btn-primary"
+                  style={{ flexGrow: 2 }}
+                  disabled={quickLoading}
+                >
+                  {quickLoading ? "Đang lưu..." : "Lưu tiến độ & Thông tin"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

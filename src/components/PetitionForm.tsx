@@ -164,7 +164,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
 
       <div className="form-group">
         <label className="form-label">
-          Địa chỉ liên hệ của người gửi (Tự động chuẩn hóa về Chánh Hưng Ward, lọc bỏ KP23)
+          Địa chỉ liên hệ của người gửi (Tự động chuẩn hóa về Phường Bình Đông, lọc bỏ KP23)
         </label>
         <input
           type="text"

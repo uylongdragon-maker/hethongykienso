@@ -174,13 +174,17 @@ export default function OverviewClient({ initialPetitions }: OverviewClientProps
             <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Chưa có dữ liệu thống kê.</p>
           ) : (
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
-              {authorityStats.map(([auth, count]) => (
-                <div key={auth} style={{ flexGrow: 1, backgroundColor: "var(--bg-content-box)", padding: "1.5rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", textAlign: "center", minWidth: "220px" }}>
-                  <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "0.35rem" }}>{auth}</div>
-                  <div style={{ fontSize: "2.25rem", fontWeight: "700", color: "var(--text-primary)" }}>{count}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>Tỷ lệ cơ cấu: {Math.round((count / stats.total) * 100)}%</div>
-                </div>
-              ))}
+              {authorityStats.map(([auth, count]) => {
+                // Hiển thị tên phường chuẩn thay cho mã thẩm quyền
+                const displayName = auth === "UBND phường" ? "Phường Bình Đông" : auth;
+                return (
+                  <div key={auth} style={{ flexGrow: 1, backgroundColor: "var(--bg-content-box)", padding: "1.5rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", textAlign: "center", minWidth: "220px" }}>
+                    <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "0.35rem" }}>{displayName}</div>
+                    <div style={{ fontSize: "2.25rem", fontWeight: "700", color: "var(--text-primary)" }}>{count}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>Tỷ lệ cơ cấu: {Math.round((count / stats.total) * 100)}%</div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
