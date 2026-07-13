@@ -177,6 +177,7 @@ export default function GoongMap({ petitions }: GoongMapProps) {
       }
     };
 
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
     if (!(window as any).goongjs) {
       if (!script) {
         script = document.createElement("script");
