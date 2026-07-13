@@ -32,6 +32,7 @@ async function main() {
     {
       petitionCode: "KN2024-001",
       source: "Tiếp xúc cử tri (trước kỳ họp)",
+      quarter: "Khu phố 15",
       senderName: "Nguyễn Văn A",
       senderPhone: "0909001111",
       senderAddress: sanitizeAddress("1111 Tạ Quang Bửu"),
@@ -52,6 +53,7 @@ async function main() {
     {
       petitionCode: "GS2026-015",
       source: "Sau giám sát",
+      quarter: "Khu phố 02",
       senderName: "Trần Thị B",
       senderPhone: null,
       senderAddress: sanitizeAddress("456 Phạm Thế Hiển"),
@@ -72,6 +74,7 @@ async function main() {
     {
       petitionCode: "KN2026-042",
       source: "Tiếp xúc cử tri (hàng tuần)",
+      quarter: "Khu phố 28",
       senderName: "Lê Văn C",
       senderPhone: null,
       senderAddress: sanitizeAddress("789 Phạm Hùng"),

@@ -65,117 +65,166 @@ export default async function PetitionDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid-layout-details">
-        {/* Cột trái: Thông tin tổng quan vụ việc (Read-only) */}
-        <section className="glass-card detail-card" style={{ padding: "2rem" }}>
-          <h3 className="detail-section-title" style={{ marginTop: 0 }}>
-            Thông tin chi tiết tiếp nhận
-          </h3>
+      <form action={updatePetitionWithId}>
+        <div className="grid-layout-details">
+          {/* Cột trái: Thông tin tổng quan vụ việc (Editable) */}
+          <section className="glass-card detail-card" style={{ padding: "2rem" }}>
+            <h3 className="detail-section-title" style={{ marginTop: 0 }}>
+              Thông tin chi tiết tiếp nhận (Chỉnh sửa)
+            </h3>
 
-          <div style={{ display: "grid", gap: "1.25rem" }}>
-            <div>
-              <span className="detail-meta-label">Người kiến nghị / Phản ánh</span>
-              <strong style={{ fontSize: "1.1rem", color: "var(--primary)" }}>
-                {petition.senderName}
-              </strong>
-              {petition.senderPhone && (
-                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block" }}>
-                  SĐT liên hệ: {petition.senderPhone}
-                </span>
-              )}
-            </div>
-
-            <div>
-              <span className="detail-meta-label">Địa chỉ người gửi</span>
-              <span style={{ fontSize: "0.9rem" }}>{petition.senderAddress}</span>
-            </div>
-
-            <div>
-              <span className="detail-meta-label">Nguồn tiếp nhận</span>
-              <span className="badge" style={{ display: "inline-block", backgroundColor: "var(--info-bg)", color: "var(--info)" }}>
-                {petition.source}
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-              <div>
-                <span className="detail-meta-label">Lĩnh vực</span>
-                <strong style={{ fontSize: "0.9rem" }}>{petition.category}</strong>
+            <div style={{ display: "grid", gap: "1.25rem" }}>
+              <div className="form-group">
+                <label className="form-label">Người kiến nghị / Phản ánh</label>
+                <input
+                  type="text"
+                  name="senderName"
+                  defaultValue={petition.senderName}
+                  className="form-control"
+                  required
+                />
               </div>
-              <div>
-                <span className="detail-meta-label">Đơn vị xử lý trực tiếp</span>
-                <span style={{ fontSize: "0.9rem" }}>{petition.department}</span>
+
+              <div className="form-group">
+                <label className="form-label">Số điện thoại liên hệ</label>
+                <input
+                  type="text"
+                  name="senderPhone"
+                  defaultValue={petition.senderPhone || ""}
+                  className="form-control"
+                  placeholder="Không bắt buộc"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Địa chỉ người gửi</label>
+                <input
+                  type="text"
+                  name="senderAddress"
+                  defaultValue={petition.senderAddress}
+                  className="form-control"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Nguồn tiếp nhận</label>
+                <select name="source" defaultValue={petition.source} className="form-control" required>
+                  <option value="Tiếp xúc cử tri (trước kỳ họp)">Tiếp xúc cử tri (trước kỳ họp)</option>
+                  <option value="Tiếp xúc cử tri (sau kỳ họp)">Tiếp xúc cử tri (sau kỳ họp)</option>
+                  <option value="Tiếp xúc cử tri (hàng tuần)">Tiếp xúc cử tri (hàng tuần)</option>
+                  <option value="Sau giám sát">Sau giám sát</option>
+                  <option value="Đơn thư trực tiếp">Đơn thư trực tiếp</option>
+                  <option value="Cổng DVC Quốc gia">Cổng DVC Quốc gia</option>
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="form-group">
+                  <label className="form-label">Lĩnh vực</label>
+                  <select name="category" defaultValue={petition.category} className="form-control" required>
+                    <option value="Quản lý đô thị">Quản lý đô thị</option>
+                    <option value="Đất đai">Đất đai</option>
+                    <option value="Môi trường">Môi trường</option>
+                    <option value="An ninh trật tự">An ninh trật tự</option>
+                    <option value="Chế độ chính sách">Chế độ chính sách</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Khu phố</label>
+                  <select name="quarter" defaultValue={petition.quarter || "Khu phố 01"} className="form-control" required>
+                    {Array.from({ length: 30 }, (_, i) => {
+                      const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
+                      return <option key={kp} value={kp}>{kp}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Đơn vị xử lý trực tiếp</label>
+                <select name="department" defaultValue={petition.department} className="form-control" required>
+                  <option value="Phòng KT-HT và Đô thị">Phòng KT-HT và Đô thị</option>
+                  <option value="Phòng Văn hóa - Xã hội">Phòng Văn hóa - Xã hội</option>
+                  <option value="Phòng Địa chính - Nhà đất">Phòng Địa chính - Nhà đất</option>
+                  <option value="Tổ Trật tự Đô thị">Tổ Trật tự Đô thị</option>
+                  <option value="Sở Giao thông Vận tải">Sở Giao thông Vận tải</option>
+                  <option value="Sở Xây dựng">Sở Xây dựng</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Thẩm quyền xử lý</label>
+                <select name="authority" defaultValue={petition.authority} className="form-control" required>
+                  <option value="UBND phường">UBND phường</option>
+                  <option value="Các Sở, ban ngành Thành phố">Các Sở, ban ngành Thành phố</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Địa bàn phản ánh (GPS)</label>
+                <input
+                  type="text"
+                  name="location"
+                  defaultValue={petition.location}
+                  className="form-control"
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+                <label className="form-label">Tóm tắt nội dung kiến nghị</label>
+                <textarea
+                  name="content"
+                  defaultValue={petition.content}
+                  rows={4}
+                  className="form-control form-textarea"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Tài liệu đính kèm (Link URL)</label>
+                <input
+                  type="text"
+                  name="attachmentUrl"
+                  defaultValue={petition.attachmentUrl || ""}
+                  className="form-control"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+                <div className="form-group">
+                  <label className="form-label">Ngày tiếp nhận</label>
+                  <input
+                    type="date"
+                    name="receivedDate"
+                    defaultValue={toInputDateFormat(petition.receivedDate)}
+                    className="form-control"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Hạn giải quyết</label>
+                  <input
+                    type="date"
+                    name="deadline"
+                    defaultValue={toInputDateFormat(petition.deadline)}
+                    className="form-control"
+                    required
+                  />
+                </div>
               </div>
             </div>
+          </section>
 
-            <div>
-              <span className="detail-meta-label">Thẩm quyền xử lý</span>
-              <span style={{ fontSize: "0.9rem", fontWeight: "600" }}>
-                {petition.authority === "UBND phường" ? "Phường Bình Đông" : petition.authority}
-              </span>
-            </div>
+          {/* Cột phải: Form cập nhật thông tin giải quyết & rà soát */}
+          <section className="glass-card detail-card" style={{ padding: "2rem" }}>
+            <h3 className="detail-section-title" style={{ marginTop: 0 }}>
+              Kết quả giải quyết & Ý kiến rà soát
+            </h3>
 
-            <div>
-              <span className="detail-meta-label">Địa bàn phản ánh (GPS)</span>
-              <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                {petition.location}
-              </span>
-            </div>
-
-            <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
-              <span className="detail-meta-label">Tóm tắt nội dung kiến nghị</span>
-              <div
-                style={{
-                  fontSize: "0.95rem",
-                  lineHeight: "1.6",
-                  backgroundColor: "rgba(0,0,0,0.02)",
-                  padding: "1rem",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border-color)",
-                  whiteSpace: "pre-line",
-                }}
-              >
-                {petition.content}
-              </div>
-            </div>
-
-            {petition.attachmentUrl && (
-              <div>
-                <span className="detail-meta-label">Tài liệu đính kèm</span>
-                <a
-                  href={petition.attachmentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary"
-                  style={{ display: "inline-flex", gap: "0.5rem", padding: "0.5rem 1rem", fontSize: "0.85rem" }}
-                >
-                  Xem tài liệu đính kèm
-                </a>
-              </div>
-            )}
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
-              <div>
-                <span className="detail-meta-label">Ngày tiếp nhận</span>
-                <strong>{formatDateShort(petition.receivedDate)}</strong>
-              </div>
-              <div>
-                <span className="detail-meta-label">Hạn giải quyết (30 ngày)</span>
-                <strong style={{ color: petition.status === "Quá hạn" ? "var(--danger)" : "inherit" }}>
-                  {formatDateShort(petition.deadline)}
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Cột phải: Form cập nhật thông tin giải quyết & rà soát */}
-        <section className="glass-card detail-card" style={{ padding: "2rem" }}>
-          <h3 className="detail-section-title" style={{ marginTop: 0 }}>
-            Kết quả giải quyết & Ý kiến rà soát
-          </h3>
-
-          <form action={updatePetitionWithId}>
             <div style={{ display: "grid", gap: "1.25rem" }}>
               <div className="form-group">
                 <label className="form-label">Trạng thái giải quyết vụ việc</label>
@@ -258,9 +307,9 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                 </button>
               </div>
             </div>
-          </form>
-        </section>
-      </div>
+          </section>
+        </div>
+      </form>
     </div>
   );
 }

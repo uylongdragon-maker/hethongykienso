@@ -18,6 +18,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
   const [senderPhone, setSenderPhone] = useState("");
   const [senderAddress, setSenderAddress] = useState("");
   const [category, setCategory] = useState("Quản lý đô thị");
+  const [quarter, setQuarter] = useState("Khu phố 01");
   const [incidentAddressText, setIncidentAddressText] = useState("");
   const [gpsCoordinates, setGpsCoordinates] = useState("");
   const [content, setContent] = useState("");
@@ -25,6 +26,23 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
   const [authority, setAuthority] = useState("UBND phường");
   const [department, setDepartment] = useState("Phòng KT-HT và Đô thị");
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deadline, setDeadline] = useState(() => {
+    const received = new Date();
+    const dl = new Date(received.getTime());
+    dl.setDate(dl.getDate() + 30);
+    return dl.toISOString().split("T")[0];
+  });
+
+  // Tự động tính toán lại hạn giải quyết (+30 ngày) khi chọn ngày tiếp nhận
+  const handleReceivedDateChange = (dateVal: string) => {
+    setReceivedDate(dateVal);
+    if (dateVal) {
+      const received = new Date(dateVal);
+      const dl = new Date(received.getTime());
+      dl.setDate(dl.getDate() + 30);
+      setDeadline(dl.toISOString().split("T")[0]);
+    }
+  };
 
   // Lấy tọa độ GPS tự động bằng Geolocation API của trình duyệt
   const handleFetchGPS = () => {
@@ -76,6 +94,8 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
           authority,
           department,
           receivedDate,
+          deadline,
+          quarter,
         }),
       });
 
@@ -177,7 +197,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
       </div>
 
       <h4 className="detail-section-title" style={{ marginTop: "1rem", fontSize: "0.95rem" }}>
-        Phân loại lĩnh vực & Địa điểm phản ánh
+        Phân loại lĩnh vực, Khu phố & Thời gian
       </h4>
       <div className="grid-cols-2">
         <div className="form-group">
@@ -192,13 +212,36 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
         </div>
 
         <div className="form-group">
+          <label className="form-label">Khu phố</label>
+          <select value={quarter} onChange={(e) => setQuarter(e.target.value)} className="form-control" required>
+            {Array.from({ length: 30 }, (_, i) => {
+              const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
+              return <option key={kp} value={kp}>{kp}</option>;
+            })}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid-cols-2" style={{ marginTop: "1rem" }}>
+        <div className="form-group">
           <label className="form-label">Ngày tiếp nhận hồ sơ</label>
           <input
             type="date"
             required
             className="form-control"
             value={receivedDate}
-            onChange={(e) => setReceivedDate(e.target.value)}
+            onChange={(e) => handleReceivedDateChange(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Thời hạn giải quyết</label>
+          <input
+            type="date"
+            required
+            className="form-control"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
           />
         </div>
       </div>

@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(useGSAP);
 
 interface SerializedPetition {
   id: string;
   petitionCode: string;
   source: string;
+  quarter: string | null;
   senderName: string;
   senderAddress: string;
   senderPhone: string | null;
@@ -38,19 +43,35 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [quarterFilter, setQuarterFilter] = useState("ALL");
+  const [departmentFilter, setDepartmentFilter] = useState("ALL");
+  const [sourceFilter, setSourceFilter] = useState("ALL");
   
   // Trạng thái mở modal tạo mới
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+
 
   // Đánh giá quá hạn
   const isOverdue = (pet: SerializedPetition) => {
     return pet.status === "Quá hạn" || (pet.status !== "Đã xong" && new Date(pet.deadline) < new Date());
   };
 
-  const categories = useMemo(() => {
+  const departments = useMemo(() => {
     const set = new Set<string>();
-    initialPetitions.forEach((p) => set.add(p.category));
+    initialPetitions.forEach((p) => {
+      if (p.department) set.add(p.department);
+    });
+    return Array.from(set);
+  }, [initialPetitions]);
+
+  const sources = useMemo(() => {
+    const set = new Set<string>();
+    initialPetitions.forEach((p) => {
+      if (p.source) set.add(p.source);
+    });
     return Array.from(set);
   }, [initialPetitions]);
 
@@ -64,8 +85,6 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         p.content.toLowerCase().includes(searchLower) ||
         p.location.toLowerCase().includes(searchLower);
 
-      const matchesCategory = categoryFilter === "ALL" || p.category === categoryFilter;
-
       let matchesStatus = true;
       if (statusFilter !== "ALL") {
         if (statusFilter === "OVERDUE") {
@@ -75,9 +94,29 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         }
       }
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      const matchesQuarter = quarterFilter === "ALL" || p.quarter === quarterFilter;
+      const matchesDepartment = departmentFilter === "ALL" || p.department === departmentFilter;
+      const matchesSource = sourceFilter === "ALL" || p.source === sourceFilter;
+
+      return matchesSearch && matchesStatus && matchesQuarter && matchesDepartment && matchesSource;
     });
-  }, [initialPetitions, search, statusFilter, categoryFilter]);
+  }, [initialPetitions, search, statusFilter, quarterFilter, departmentFilter, sourceFilter]);
+
+  useGSAP(() => {
+    // Hoạt ảnh xuất hiện mượt mà từng hàng (Staggered entry) của bảng
+    gsap.from(".data-table tbody tr", {
+      opacity: 0,
+      y: 12,
+      duration: 0.35,
+      stagger: 0.02,
+      ease: "power2.out",
+      clearProps: "all"
+    });
+  }, {
+    dependencies: [filteredPetitions],
+    scope: containerRef,
+    revertOnUpdate: true
+  });
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
@@ -88,10 +127,254 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     });
   };
 
+  const handleExportReminder = (pet: SerializedPetition) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const today = new Date();
+    const dayStr = today.getDate().toString().padStart(2, "0");
+    const monthStr = (today.getMonth() + 1).toString().padStart(2, "0");
+    const yearStr = today.getFullYear();
+
+    const categoryName = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
+    const locationName = pet.quarter || pet.location;
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Công văn đôn đốc - ${pet.petitionCode}</title>
+          <style>
+            @media print {
+              body { margin: 1.5cm; font-size: 13pt; }
+              .no-print { display: none; }
+            }
+            body {
+              font-family: "Times New Roman", Times, serif;
+              line-height: 1.5;
+              color: #000;
+              margin: 2cm;
+              font-size: 13pt;
+            }
+            .header-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 1.5rem;
+            }
+            .header-table td {
+              vertical-align: top;
+              text-align: center;
+              padding: 0;
+            }
+            .header-left {
+              width: 45%;
+            }
+            .header-right {
+              width: 55%;
+            }
+            .title-org {
+              font-size: 11pt;
+              font-weight: bold;
+            }
+            .title-suborg {
+              font-size: 11pt;
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .title-nation {
+              font-size: 11pt;
+              font-weight: bold;
+            }
+            .title-motto {
+              font-size: 11pt;
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .doc-number {
+              margin-top: 0.5rem;
+              font-size: 11pt;
+            }
+            .doc-date {
+              margin-top: 0.5rem;
+              font-style: italic;
+              font-size: 11pt;
+              text-align: right;
+            }
+            .doc-title {
+              text-align: center;
+              font-weight: bold;
+              margin-top: 2rem;
+              margin-bottom: 1.5rem;
+            }
+            .recipient {
+              text-align: center;
+              font-weight: bold;
+              margin-bottom: 1.5rem;
+            }
+            .content-section {
+              text-align: justify;
+              margin-bottom: 1rem;
+              text-indent: 1.5cm;
+            }
+            .content-section p {
+              margin: 0.5rem 0;
+              text-indent: 1.5cm;
+            }
+            .bullet-list {
+              margin-left: 1.5cm;
+              text-align: justify;
+            }
+            .bullet-item {
+              margin: 0.5rem 0;
+            }
+            .signature-table {
+              width: 100%;
+              margin-top: 2rem;
+              border-collapse: collapse;
+            }
+            .signature-table td {
+              vertical-align: top;
+              padding: 0;
+            }
+            .signature-left {
+              width: 40%;
+              font-size: 11pt;
+              text-align: left;
+            }
+            .signature-right {
+              width: 60%;
+              text-align: center;
+            }
+            .btn-print-box {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: #000;
+              color: #fff;
+              padding: 10px 20px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+              border: none;
+              font-family: sans-serif;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+          </style>
+        </head>
+        <body>
+          <button class="no-print btn-print-box" onclick="window.print()">In công văn / Lưu PDF</button>
+          
+          <table class="header-table">
+            <tr>
+              <td class="header-left">
+                <div class="title-org">HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG</div>
+                <div class="title-suborg">THƯỜNG TRỰC HỘI ĐỒNG NHÂN DÂN</div>
+                <div class="doc-number">Số: &nbsp; &nbsp; &nbsp; &nbsp; /HĐND- ĐĐ</div>
+                <div style="font-size: 9pt; margin-top: 0.35rem;">V/v đôn đốc giải quyết kiến nghị cử tri</div>
+              </td>
+              <td class="header-right">
+                <div class="title-nation">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div class="title-suborg" style="font-weight: bold;">Độc lập - Tự do - Hạnh phúc</div>
+                <div class="doc-date">Bình Đông, ngày ${dayStr} tháng ${monthStr} năm ${yearStr}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="doc-title" style="font-size: 14pt;">
+            CÔNG VĂN ĐÔN ĐỐC<br/>
+            <span style="font-size: 11pt; font-weight: normal; font-style: italic;">
+              Về việc đôn đốc giải quyết kiến nghị cử tri trước/sau Kỳ họp, nhiệm kỳ 2026 - 2031 (lần 1)
+            </span>
+          </div>
+
+          <div class="recipient">
+            Kính gửi: Ủy ban nhân dân phường Bình Đông
+          </div>
+
+          <div class="content-section">
+            Thực hiện chức năng giám sát theo quy định của Luật Tổ chức chính quyền địa phương và căn cứ vào dữ liệu theo dõi trên Hệ thống quản lý kiến nghị cử tri của HĐND phường.
+          </div>
+
+          <div class="content-section">
+            Qua rà soát thực tế tiến độ giải quyết các kiến nghị của cử tri trước, sau Kỳ họp và việc thực hiện các thông báo kết luận sau giám sát, khảo sát của Thường trực HĐND phường, tính đến ngày ${dayStr}/${monthStr}/${yearStr}, Thường trực HĐND phường nhận thấy:
+          </div>
+
+          <div class="content-section">
+            1. Về tiến độ giải quyết kiến nghị cử tri: Theo dữ liệu hệ thống, hiện vụ việc mã số <strong>${pet.petitionCode}</strong> gửi ngày ${new Date(pet.receivedDate).toLocaleDateString("vi-VN")} đã quá thời hạn giải quyết theo quy định nhưng chưa có báo cáo kết quả hoặc văn bản phản hồi chính thức từ UBND phường.
+          </div>
+
+          <div class="content-section">
+            2. Về thực hiện kết luận giám sát, khảo sát: Nội dung kiến nghị về lĩnh vực <strong>${categoryName}</strong> tại khu vực <strong>${locationName}</strong> với nội dung: <em>"${pet.content}"</em> vẫn chưa được triển khai dứt điểm, gây ảnh hưởng đến quyền lợi chính đáng của cử tri và uy tín của cơ quan nhà nước tại địa bàn phường.
+          </div>
+
+          <div class="content-section">
+            Để đảm bảo tính nghiêm minh trong công tác giải quyết kiến nghị và thực hiện đúng lộ trình chuyển đổi số của phường, Thường trực HĐND phường đề nghị UBND phường:
+          </div>
+
+          <div class="bullet-list">
+            <div class="bullet-item">- Tập trung chỉ đạo các bộ phận chuyên môn rà soát, xác định rõ nguyên nhân, trách nhiệm của cá nhân, đơn vị trong việc chậm trễ đối với nội dung nêu trên.</div>
+            <div class="bullet-item">- Khẩn trương cập nhật tiến độ, kết quả xử lý và đính kèm văn bản trả lời lên Hệ thống quản lý số của HĐND trước ngày ${new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("vi-VN")} để Thường trực HĐND tổng hợp, thông tin đến cử tri.</div>
+            <div class="bullet-item">- Đối với các kiến nghị có vướng mắc khách quan hoặc vượt thẩm quyền, yêu cầu có báo cáo bằng văn bản nêu rõ lộ trình và phương hướng kiến nghị cấp trên để Thường trực HĐND có cơ sở giám sát tiếp theo.</div>
+          </div>
+
+          <div class="content-section" style="margin-top: 1rem;">
+            Thường trực HĐND phường đề nghị UBND phường nghiêm túc triển khai thực hiện và phản hồi đúng thời hạn quy định./.
+          </div>
+
+          <table class="signature-table">
+            <tr>
+              <td class="signature-left">
+                <strong>Nơi nhận:</strong><br/>
+                - Như trên;<br/>
+                - Đảng ủy phường (để báo cáo);<br/>
+                - Đại biểu HĐND phường (để biết);<br/>
+                - Lưu: VT.
+              </td>
+              <td class="signature-right">
+                <strong>TM. THƯỜNG TRỰC HĐND</strong><br/>
+                <strong>KT. CHỦ TỊCH</strong><br/>
+                <strong>PHÓ CHỦ TỊCH</strong>
+                <br/><br/><br/><br/>
+                <strong style="font-size: 12pt;">(Ký tên, đóng dấu)</strong>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const getStatusBadge = (pet: SerializedPetition) => {
     const overdue = isOverdue(pet);
     if (overdue) {
-      return <span className="badge badge-overdue">Quá hạn</span>;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "center" }}>
+          <span className="badge badge-overdue">Quá hạn</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExportReminder(pet);
+            }}
+            className="btn btn-secondary"
+            style={{
+              padding: "0.2rem 0.4rem",
+              fontSize: "0.7rem",
+              lineHeight: "1.1",
+              backgroundColor: "rgba(225, 29, 72, 0.08)",
+              color: "var(--danger)",
+              borderColor: "rgba(225, 29, 72, 0.2)",
+              borderRadius: "4px",
+              cursor: "pointer",
+              whiteSpace: "nowrap"
+            }}
+            title="Xuất công văn nhắc nhở"
+          >
+            Công văn đôn đốc
+          </button>
+        </div>
+      );
     }
     switch (pet.status) {
       case "Đã xong":
@@ -106,17 +389,45 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const handleExportCSV = () => {
-    let csv = "STT,Mã vụ việc,Nguồn tiếp nhận,Họ tên người gửi,Địa chỉ liên hệ,Số điện thoại,Lĩnh vực,Tọa độ phản ánh,Nội dung kiến nghị,Thẩm quyền xử lý,Đơn vị xử lý trực tiếp,Ngày tiếp nhận,Hạn giải quyết,Gia hạn,Trạng thái,Văn bản trả lời,Ý kiến rà soát\n";
+    let csv = "STT,Mã vụ việc,Nguồn tiếp nhận,Thông tin người gửi - Họ tên,Thông tin người gửi - Địa chỉ liên hệ,Thông tin người gửi - Số điện thoại,Lĩnh vực,Địa chỉ nơi phản ánh (định vị tọa độ số GPS),Nội dung kiến nghị,Đơn vị xử lý trực tiếp thuộc cấp phường,Thẩm quyền xử lý - Phường,Thẩm quyền xử lý - Các Sở ban ngành Thành phố,Ngày tiếp nhận,Thời hạn giải quyết theo thẩm quyền,Thời hạn báo cáo tổng hợp kết quả giải quyết,Thời gian gia hạn (nếu có),Trạng thái xử lý,Văn bản trả lời (Link),Nội dung rà soát trả lời kiến nghị - Hoàn thành,Nội dung rà soát trả lời kiến nghị - Chưa giải quyết,Nội dung rà soát trả lời kiến nghị - Mới giải quyết 1 phần,Ghi chú\n";
     
     filteredPetitions.forEach((pet, index) => {
       const phone = pet.senderPhone || "";
       const extended = pet.extendedUntil ? formatDate(pet.extendedUntil) : "";
-      const replyDoc = pet.replyDocNumber || "";
-      const notes = pet.notes || "";
-      // Hiển thị tên chuẩn cho thẩm quyền xử lý
-      const authorityDisplay = pet.authority === "UBND phường" ? "Phường Bình Đông" : pet.authority;
       
-      csv += `${index + 1},${pet.petitionCode},"${pet.source}","${pet.senderName}","${pet.senderAddress}","${phone}","${pet.category}","${pet.location}","${pet.content.replace(/"/g, '""')}","${authorityDisplay}","${pet.department}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","${extended}","${pet.status}","${replyDoc}","${notes}"\n`;
+      const categoryDisplay = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
+
+      const authPhuong = pet.authority === "UBND phường" ? "X" : "";
+      const authSo = pet.authority !== "UBND phường" ? "X" : "";
+
+      let replyLinkDisplay = "";
+      if (pet.replyDocLink) {
+        if (pet.replyDocNumber && pet.replyDocNumber.length > 15) {
+          replyLinkDisplay = `[Link PDF] (${pet.replyDocLink})`;
+        } else {
+          replyLinkDisplay = `[${pet.replyDocNumber || "Văn bản"}] (${pet.replyDocLink})`;
+        }
+      } else {
+        replyLinkDisplay = pet.replyDocNumber || "";
+      }
+
+      let reviewHoanThanh = "";
+      let reviewChuaGiaiQuyet = "";
+      let reviewMotPhan = "";
+
+      if (pet.replyDocNumber && pet.replyDocNumber.length > 15) {
+        if (pet.reviewStatus === "Hoàn thành") {
+          reviewHoanThanh = pet.replyDocNumber;
+        } else if (pet.reviewStatus === "Chưa giải quyết") {
+          reviewChuaGiaiQuyet = pet.replyDocNumber;
+        } else if (pet.reviewStatus === "Mới giải quyết 1 phần") {
+          reviewMotPhan = pet.replyDocNumber;
+        }
+      }
+
+      const notes = pet.notes || "";
+
+      csv += `${index + 1},${pet.petitionCode},"${pet.source}","${pet.senderName}","${pet.senderAddress}","${phone}","${categoryDisplay}","${pet.location}","${pet.content.replace(/"/g, '""')}","${pet.department}","${authPhuong}","${authSo}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","Ngày tổ chức kỳ họp trừ 30 ngày","${extended}","${pet.status}","${replyLinkDisplay.replace(/"/g, '""')}","${reviewHoanThanh.replace(/"/g, '""')}","${reviewChuaGiaiQuyet.replace(/"/g, '""')}","${reviewMotPhan.replace(/"/g, '""')}","${notes.replace(/"/g, '""')}"\n`;
     });
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -201,7 +512,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   return (
-    <div>
+    <div ref={containerRef}>
       <div className="page-header" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 className="page-title">Sổ theo dõi & Giám sát vụ việc</h1>
@@ -229,18 +540,18 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
 
       <div className="glass-card" style={{ padding: "1.5rem" }}>
         {/* Thanh tìm kiếm và bộ lọc */}
-        <div className="filter-bar">
-          <div className="search-input-wrapper">
+        <div className="filter-bar" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
+          <div className="search-input-wrapper" style={{ flexGrow: 1, minWidth: "250px" }}>
             <input
               type="text"
-              placeholder="Tìm kiếm mã, người gửi, địa bàn phản ánh, nội dung..."
+              placeholder="Tìm kiếm mã, người gửi, nội dung..."
               className="form-control"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           
-          <div style={{ minWidth: "200px" }}>
+          <div style={{ minWidth: "150px" }}>
             <select
               className="form-control"
               value={statusFilter}
@@ -254,16 +565,45 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
             </select>
           </div>
 
+          <div style={{ minWidth: "150px" }}>
+            <select
+              className="form-control"
+              value={quarterFilter}
+              onChange={(e) => setQuarterFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả khu phố</option>
+              {Array.from({ length: 30 }, (_, i) => {
+                const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
+                return <option key={kp} value={kp}>{kp}</option>;
+              })}
+            </select>
+          </div>
+
           <div style={{ minWidth: "180px" }}>
             <select
               className="form-control"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
             >
-              <option value="ALL">Tất cả lĩnh vực</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              <option value="ALL">Tất cả đơn vị</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ minWidth: "180px" }}>
+            <select
+              className="form-control"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả nguồn</option>
+              {sources.map((src) => (
+                <option key={src} value={src}>
+                  {src}
                 </option>
               ))}
             </select>
@@ -271,89 +611,113 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         </div>
 
         {/* Bảng chi tiết */}
-        <div className="table-container">
-          <table className="data-table">
+        <div className="table-container" style={{ overflowX: "auto", width: "100%" }}>
+          <table className="data-table ledger-table">
             <thead>
               <tr>
-                <th rowSpan={2} style={{ width: "50px", textAlign: "center", borderBottom: "1px solid var(--border-color)" }}>STT</th>
-                <th rowSpan={2} style={{ width: "110px", borderBottom: "1px solid var(--border-color)" }}>Mã vụ việc</th>
-                <th rowSpan={2} style={{ width: "130px", borderBottom: "1px solid var(--border-color)" }}>Nguồn tiếp nhận</th>
-                <th colSpan={3} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)" }}>Thông tin người gửi</th>
-                <th rowSpan={2} style={{ width: "100px", borderBottom: "1px solid var(--border-color)" }}>Lĩnh vực</th>
-                <th rowSpan={2} style={{ width: "180px", borderBottom: "1px solid var(--border-color)" }}>Địa bàn phản ánh (GPS)</th>
-                <th rowSpan={2} style={{ borderBottom: "1px solid var(--border-color)" }}>Nội dung kiến nghị</th>
-                <th colSpan={2} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)" }}>Thẩm quyền xử lý</th>
-                <th rowSpan={2} style={{ width: "150px", borderBottom: "1px solid var(--border-color)" }}>Đơn vị xử lý trực tiếp</th>
-                <th rowSpan={2} style={{ width: "100px", borderBottom: "1px solid var(--border-color)" }}>Ngày tiếp nhận</th>
-                <th rowSpan={2} style={{ width: "100px", borderBottom: "1px solid var(--border-color)" }}>Hạn giải quyết</th>
-                <th rowSpan={2} style={{ width: "100px", borderBottom: "1px solid var(--border-color)" }}>Gia hạn</th>
-                <th rowSpan={2} style={{ width: "100px", borderBottom: "1px solid var(--border-color)" }}>Trạng thái</th>
-                <th rowSpan={2} style={{ width: "150px", borderBottom: "1px solid var(--border-color)" }}>Văn bản trả lời (Link)</th>
-                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)" }}>Kết quả rà soát</th>
-                <th rowSpan={2} style={{ width: "200px", borderBottom: "1px solid var(--border-color)" }}>Ghi chú</th>
-                <th rowSpan={2} style={{ width: "90px", textAlign: "center", borderBottom: "1px solid var(--border-color)" }}>Hành động</th>
+                <th rowSpan={2} style={{ width: "60px", textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>STT</th>
+                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Mã vụ việc</th>
+                <th rowSpan={2} style={{ width: "140px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Nguồn tiếp nhận</th>
+                <th colSpan={3} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Thông tin người gửi</th>
+                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Lĩnh vực</th>
+                <th rowSpan={2} style={{ width: "200px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Địa chỉ nơi phản ánh (GPS)</th>
+                <th rowSpan={2} style={{ width: "380px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Nội dung kiến nghị</th>
+                <th rowSpan={1} style={{ width: "240px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle", textAlign: "center" }}>Đơn vị xử lý trực tiếp thuộc cấp phường</th>
+                <th colSpan={2} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Thẩm quyền xử lý</th>
+                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Ngày tiếp nhận</th>
+                <th rowSpan={2} style={{ width: "420px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>UBND chuẩn bị báo cáo tổng hợp kết quả giải quyết, trả lời kiến nghị của cử tri thuộc thẩm quyền giải quyết (Chậm nhất là 30 ngày, trước ngày khai mạc kỳ họp HĐND)</th>
+                <th rowSpan={2} style={{ width: "200px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Thời hạn báo cáo tổng hợp kết quả</th>
+                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Thời gian gia hạn (nếu có)</th>
+                <th rowSpan={2} style={{ width: "140px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", textAlign: "center", verticalAlign: "middle" }}>Trạng thái xử lý</th>
+                <th rowSpan={2} style={{ width: "160px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Văn bản trả lời (Link)</th>
+                <th colSpan={3} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Nội dung rà soát trả lời kiến nghị</th>
+                <th rowSpan={2} style={{ width: "180px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Ghi chú</th>
+                <th rowSpan={2} style={{ width: "140px", textAlign: "center", borderBottom: "1px solid var(--border-color)", verticalAlign: "middle" }}>Hành động</th>
               </tr>
               <tr>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>Họ tên</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>Địa chỉ liên hệ</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>Số điện thoại</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>Phường</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>Sở/Ngành TP</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "140px" }}>Họ tên</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "220px" }}>Địa chỉ liên hệ</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "110px" }}>Số điện thoại</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", fontWeight: "bold", width: "240px" }}>Các phòng, ban chuyên môn giải quyết</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "80px" }}>Phường</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "100px" }}>Sở/Ngành TP</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>Hoàn thành</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>Chưa giải quyết</th>
+                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>1 Phần</th>
               </tr>
             </thead>
             <tbody>
               {filteredPetitions.length === 0 ? (
                 <tr>
-                  <td colSpan={19} style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
+                  <td colSpan={23} style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
                     Không tìm thấy dữ liệu nào phù hợp.
                   </td>
                 </tr>
               ) : (
                 filteredPetitions.map((pet, index) => {
                   const overdue = isOverdue(pet);
+
+                  // Định dạng hiển thị lĩnh vực ngắn gọn
+                  const categoryDisplay = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
+
+                  // Tách nội dung rà soát theo trạng thái
+                  const isLongReply = pet.replyDocNumber && pet.replyDocNumber.length > 15;
+                  const reviewHoanThanh = isLongReply && pet.reviewStatus === "Hoàn thành" ? pet.replyDocNumber : "-";
+                  const reviewChuaGiaiQuyet = isLongReply && pet.reviewStatus === "Chưa giải quyết" ? pet.replyDocNumber : "-";
+                  const reviewMotPhan = isLongReply && pet.reviewStatus === "Mới giải quyết 1 phần" ? pet.replyDocNumber : "-";
+
                   return (
                     <tr key={pet.id} style={overdue ? { backgroundColor: "rgba(225, 29, 72, 0.04)" } : {}}>
-                      <td style={{ textAlign: "center", fontWeight: "500", color: "var(--text-muted)" }}>
+                      <td style={{ textAlign: "center", fontWeight: "500", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>
                         {index + 1}
                       </td>
-                      <td style={{ fontWeight: "700", color: overdue ? "var(--danger)" : "var(--primary)" }}>
+                      <td style={{ fontWeight: "700", color: overdue ? "var(--danger)" : "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
                         {pet.petitionCode}
                       </td>
-                      <td style={{ fontSize: "0.85rem", fontWeight: "500" }}>
+                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
                         {pet.source}
                       </td>
-                      <td style={{ fontWeight: "600" }}>{pet.senderName}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pet.senderAddress}>
+                      <td style={{ fontWeight: "600", fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>{pet.senderName}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }} title={pet.senderAddress}>
                         {pet.senderAddress}
                       </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{pet.senderPhone || "-"}</td>
-                      <td style={{ fontSize: "0.85rem", fontWeight: "500" }}>{pet.category}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{pet.location}</td>
-                      <td>
-                        <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", whiteSpace: "pre-line", minWidth: "200px" }}>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>{pet.senderPhone || "-"}</td>
+                      <td style={{ fontSize: "0.85rem", fontWeight: "500", borderRight: "1px solid var(--border-color)" }}>
+                        {categoryDisplay}
+                      </td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
+                        {pet.quarter || pet.location}
+                      </td>
+                      <td style={{ borderRight: "1px solid var(--border-color)" }}>
+                        <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", whiteSpace: "pre-line", minWidth: "250px" }}>
                           {pet.content}
                         </div>
                       </td>
-                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)" }}>
-                        {pet.authority === "UBND phường" ? "✓" : "-"}
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)" }}>
-                        {pet.authority !== "UBND phường" ? "✓" : "-"}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
                         {pet.department}
                       </td>
-                      <td style={{ fontSize: "0.85rem" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
+                        {pet.authority === "UBND phường" ? "✓" : "-"}
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
+                        {pet.authority !== "UBND phường" ? "✓" : "-"}
+                      </td>
+                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
                         {formatDate(pet.receivedDate)}
                       </td>
-                      <td style={{ fontSize: "0.85rem", color: overdue ? "var(--danger)" : "inherit", fontWeight: overdue ? "700" : "500" }}>
+                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
                         {formatDate(pet.deadline)}
                       </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--warning)" }}>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>
+                        Ngày tổ chức kỳ họp trừ 30 ngày
+                      </td>
+                      <td style={{ fontSize: "0.85rem", color: "var(--warning)", borderRight: "1px solid var(--border-color)" }}>
                         {pet.extendedUntil ? formatDate(pet.extendedUntil) : "-"}
                       </td>
-                      <td>{getStatusBadge(pet)}</td>
-                      <td>
+                      <td style={{ textAlign: "center", borderRight: "1px solid var(--border-color)" }}>
+                        {getStatusBadge(pet)}
+                      </td>
+                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
                         {pet.replyDocNumber ? (
                           pet.replyDocLink ? (
                             <a
@@ -362,19 +726,19 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                               rel="noopener noreferrer"
                               style={{ color: "var(--primary)", fontWeight: "500", textDecoration: "underline" }}
                             >
-                              {pet.replyDocNumber}
+                              {pet.replyDocNumber.length > 15 ? "[Link PDF]" : pet.replyDocNumber}
                             </a>
                           ) : (
-                            <span style={{ fontWeight: "500", fontSize: "0.85rem" }}>{pet.replyDocNumber}</span>
+                            <span style={{ fontWeight: "500" }}>{pet.replyDocNumber}</span>
                           )
                         ) : (
-                          <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>-</span>
+                          "-"
                         )}
                       </td>
-                      <td style={{ fontSize: "0.85rem", fontWeight: "600", color: pet.reviewStatus === "Hoàn thành" ? "var(--success)" : pet.reviewStatus === "Mới giải quyết 1 phần" ? "var(--warning)" : "var(--text-secondary)" }}>
-                        {pet.reviewStatus}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      <td style={{ fontSize: "0.8rem", color: "var(--success)", borderRight: "1px solid var(--border-color)" }}>{reviewHoanThanh}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>{reviewChuaGiaiQuyet}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--warning)", borderRight: "1px solid var(--border-color)" }}>{reviewMotPhan}</td>
+                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
                         {pet.notes || "-"}
                       </td>
                       <td style={{ textAlign: "center" }}>

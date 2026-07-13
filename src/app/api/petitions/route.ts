@@ -122,6 +122,8 @@ export async function POST(req: NextRequest) {
       authority,
       department,
       receivedDate,
+      deadline, // Hạn giải quyết tự chọn
+      quarter,  // Khu phố tự chọn
     } = body;
 
     // Kiểm tra dữ liệu bắt buộc
@@ -155,10 +157,9 @@ export async function POST(req: NextRequest) {
     // Tự động sinh mã vụ việc
     const petitionCode = await generatePetitionCode(type);
 
-    // Tính toán thời hạn giải quyết: Ngày tiếp nhận + 30 ngày
+    // Tính toán thời hạn giải quyết: Sử dụng từ body (nếu có) hoặc mặc định Ngày tiếp nhận + 30 ngày
     const received = new Date(receivedDate);
-    const deadline = new Date(received.getTime());
-    deadline.setDate(deadline.getDate() + 30);
+    const finalDeadline = deadline ? new Date(deadline) : new Date(received.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     // Chuẩn hóa địa chỉ liên hệ của người gửi
     const sanitizedAddress = sanitizeAddress(senderAddress);
@@ -174,6 +175,7 @@ export async function POST(req: NextRequest) {
       data: {
         petitionCode,
         source,
+        quarter: quarter || null,
         senderName,
         senderPhone: senderPhone || null,
         senderAddress: sanitizedAddress,
@@ -184,7 +186,7 @@ export async function POST(req: NextRequest) {
         authority,
         department,
         receivedDate: received,
-        deadline,
+        deadline: finalDeadline,
         extendedUntil: null,
         status: initialStatus,
         replyDocNumber: null,

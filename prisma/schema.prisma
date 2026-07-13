@@ -11,6 +11,7 @@ model Petition {
   id              String    @id @default(cuid())
   petitionCode    String    @unique // Mã vụ việc: KN2026-001, GS2026-015...
   source          String    // Nguồn tiếp nhận
+  quarter         String?   // Khu phố (Khu phố 01 đến Khu phố 30)
 
   // Thông tin người gửi
   senderName      String    // Họ tên người gửi
