@@ -987,3 +987,49 @@ select.form-control {
   box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15) !important;
   z-index: 10;
 }
+
+/* Custom Goong Map Marker styling */
+.goong-custom-marker {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.goong-custom-marker:hover {
+  transform: scale(1.35);
+  z-index: 99;
+}
+
+@keyframes map-pin-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.marker-overdue {
+  background-color: #ef4444;
+  animation: map-pin-pulse 1.8s infinite;
+}
+
+.marker-in-progress {
+  background-color: #f59e0b;
+}
+
+.marker-completed {
+  background-color: #10b981;
+}
+

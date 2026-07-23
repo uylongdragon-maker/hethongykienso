@@ -145,8 +145,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Danh mục lĩnh vực hợp lệ
-    const validCategories = ["Quản lý đô thị", "Đất đai", "Môi trường", "An ninh trật tự", "Chế độ chính sách"];
+    // Danh mục lĩnh vực hợp lệ (21 lĩnh vực mới và các lĩnh vực cũ)
+    const validCategories = [
+      "Quy hoạch, quy hoạch đô thị, phát triển hạ tầng kỹ thuật và hạ tầng xã hội trên địa bàn",
+      "Kế hoạch, đầu tư",
+      "Tài chính",
+      "Ngân sách",
+      "Liên kết, hợp tác giữa các đơn vị hành chính",
+      "Đất đai",
+      "Tài nguyên, môi trường",
+      "Nông, lâm, ngư nghiệp",
+      "Công nghiệp",
+      "Thương mại, dịch vụ",
+      "Du lịch",
+      "Xây dựng và giao thông ở địa phương",
+      "Tổ chức bộ máy và xây dựng chính quyền",
+      "Giáo dục",
+      "Y tế",
+      "Văn hóa, xã hội",
+      "Thể dục, thể thao",
+      "Khoa học, công nghệ, thông tin",
+      "Đổi mới sáng tạo, chuyển đổi số",
+      "Quốc phòng, an ninh",
+      "Dân tộc và tôn giáo ở địa phương",
+      "Quản lý đô thị",
+      "Môi trường",
+      "An ninh trật tự",
+      "Chế độ chính sách"
+    ];
     if (!validCategories.includes(category)) {
       return NextResponse.json(
         { success: false, error: "Lĩnh vực phân loại không hợp lệ." },

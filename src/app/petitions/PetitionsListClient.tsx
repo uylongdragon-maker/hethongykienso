@@ -46,13 +46,12 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   const [quarterFilter, setQuarterFilter] = useState("ALL");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   
   // Trạng thái mở modal tạo mới
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-
 
   // Đánh giá quá hạn
   const isOverdue = (pet: SerializedPetition) => {
@@ -71,6 +70,14 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     const set = new Set<string>();
     initialPetitions.forEach((p) => {
       if (p.source) set.add(p.source);
+    });
+    return Array.from(set);
+  }, [initialPetitions]);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    initialPetitions.forEach((p) => {
+      if (p.category) set.add(p.category);
     });
     return Array.from(set);
   }, [initialPetitions]);
@@ -97,10 +104,11 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
       const matchesQuarter = quarterFilter === "ALL" || p.quarter === quarterFilter;
       const matchesDepartment = departmentFilter === "ALL" || p.department === departmentFilter;
       const matchesSource = sourceFilter === "ALL" || p.source === sourceFilter;
+      const matchesCategory = categoryFilter === "ALL" || p.category === categoryFilter;
 
-      return matchesSearch && matchesStatus && matchesQuarter && matchesDepartment && matchesSource;
+      return matchesSearch && matchesStatus && matchesQuarter && matchesDepartment && matchesSource && matchesCategory;
     });
-  }, [initialPetitions, search, statusFilter, quarterFilter, departmentFilter, sourceFilter]);
+  }, [initialPetitions, search, statusFilter, quarterFilter, departmentFilter, sourceFilter, categoryFilter]);
 
   useGSAP(() => {
     // Hoạt ảnh xuất hiện mượt mà từng hàng (Staggered entry) của bảng
@@ -600,10 +608,25 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
             >
-              <option value="ALL">Tất cả nguồn</option>
+              <option value="ALL">Tất cả nguồn / kỳ họp</option>
               {sources.map((src) => (
                 <option key={src} value={src}>
                   {src}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ minWidth: "180px" }}>
+            <select
+              className="form-control"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả lĩnh vực</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
                 </option>
               ))}
             </select>

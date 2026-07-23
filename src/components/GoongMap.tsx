@@ -26,20 +26,34 @@ interface SerializedPetition {
 
 interface GoongMapProps {
   petitions: SerializedPetition[];
+  height?: string;
+  interactive?: boolean;
 }
 
-// Hàm băm tọa độ ngẫu nhiên nhưng cố định cho mỗi kiến nghị nằm trong phạm vi phường Bình Đông
-function getPetitionCoordinates(pet: SerializedPetition) {
+// Trích xuất hoặc tính toán tọa độ GPS thực tế của vụ việc
+function getPetitionCoordinates(pet: SerializedPetition): [number, number] {
+  // 1. Nếu có chuỗi GPS trong location (Ví dụ: "1122 Phạm Thế Hiển (GPS: 10.742300, 106.682100)")
+  if (pet.location && pet.location.includes("GPS:")) {
+    const match = pet.location.match(/GPS:\s*([0-9.]+),\s*([0-9.]+)/);
+    if (match && match[1] && match[2]) {
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return [lng, lat];
+      }
+    }
+  }
+
+  // 2. Tính toán phân bổ vị trí đẹp theo ID vụ việc trong phạm vi Phường Bình Đông
   let hash = 0;
   for (let i = 0; i < pet.id.length; i++) {
     hash = pet.id.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Tọa độ bao quanh Phường Bình Đông (Quận 8)
-  const minLat = 10.718;
-  const maxLat = 10.729;
-  const minLng = 106.626;
-  const maxLng = 106.640;
+  const minLat = 10.710;
+  const maxLat = 10.740;
+  const minLng = 106.620;
+  const maxLng = 106.655;
   
   const lat = minLat + (Math.abs(hash) % 10000) / 10000 * (maxLat - minLat);
   const lng = minLng + (Math.abs(hash >> 3) % 10000) / 10000 * (maxLng - minLng);
@@ -47,33 +61,33 @@ function getPetitionCoordinates(pet: SerializedPetition) {
   return [lng, lat];
 }
 
-export default function GoongMap({ petitions }: GoongMapProps) {
+export default function GoongMap({ petitions, height = "480px" }: GoongMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Dynamic API keys selection: use demo keys on localhost to bypass domain/referrer restrictions
-  const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const GOONG_MAP_KEY = isLocal ? "8y6t5o7c9m1k2v8y6t5o7c9m1k2v8y6t" : (process.env.NEXT_PUBLIC_GOONG_MAP_KEY || "wMcOxHb7uftjWS5GbIiOdTVmP2jwXOTPPHUof6oC");
-  const GOONG_API_KEY = isLocal ? "7tK1g1n8vR22y0K6o7c9m1k2v8y6t5o7" : (process.env.NEXT_PUBLIC_GOONG_API_KEY || "KnX2ICwrz3dEAXpeNaCtyrpvdZo438CbBCQBxhEE");
+  // Đọc trực tiếp chìa khóa API Goong từ file .env (không ghi đè key giả trên localhost)
+  const GOONG_MAP_KEY = process.env.NEXT_PUBLIC_GOONG_MAP_KEY || "wMcOxHb7uftjWS5GbIiOdTVmP2jwXOTPPHUof6oC";
+  const GOONG_API_KEY = process.env.NEXT_PUBLIC_GOONG_API_KEY || "KnX2ICwrz3dEAXpeNaCtyrpvdZo438CbBCQBxhEE";
 
   useEffect(() => {
-    // 1. Tải stylesheet của Goong Map
-    const linkId = "goong-map-css";
+    // 1. Tải stylesheet chính thức của Goong Map từ CDN
+    const linkId = "goong-map-css-cdn";
     if (!document.getElementById(linkId)) {
       const link = document.createElement("link");
       link.id = linkId;
       link.rel = "stylesheet";
-      link.href = "/libs/goong-js.css";
+      link.href = "https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.css";
       document.head.appendChild(link);
     }
 
-    // 2. Tải Goong Map JS SDK
-    const scriptId = "goong-map-js";
+    // 2. Tải Goong Map JS SDK từ CDN
+    const scriptId = "goong-map-js-cdn";
+    
     const initMap = () => {
       const goongjs = (window as any).goongjs;
       if (!goongjs) {
-        setError("Không thể tải thư viện Goong Map JS SDK.");
+        setError("Không thể nạp thư viện SDK Goong Map JS.");
         return;
       }
 
@@ -82,89 +96,92 @@ export default function GoongMap({ petitions }: GoongMapProps) {
       try {
         goongjs.accessToken = GOONG_MAP_KEY;
         
-        // Khởi tạo bản đồ Goong Map centered vào Phường Bình Đông, Quận 8, TP.HCM
+        // Khởi tạo Goong Map góc nhìn 3D trực quan tại trung tâm Phường Bình Đông
         const map = new goongjs.Map({
           container: mapContainerRef.current,
           style: `https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_API_KEY}`,
-          center: [106.632, 10.724], // Tọa độ trung tâm phường Bình Đông
-          zoom: 14.5,
-          pitch: 30, // Góc nghiêng 3D nhẹ
+          center: [106.635, 10.725],
+          zoom: 14,
+          pitch: 35, // Góc nghiêng 3D
         });
 
-        // Thêm các control điều hướng
+        // Điều khiển phím điều hướng & zoom
         map.addControl(new goongjs.NavigationControl(), "top-right");
 
         map.on("load", () => {
           setMapLoaded(true);
 
-          // 3. Nạp ranh giới Phường Bình Đông từ file GeoJSON
-          map.addSource("binhdong-boundary", {
+          // 3. Nạp ranh giới 30 Khu Phố Phường Bình Đông từ file GeoJSON chính xác
+          map.addSource("binhdong-boundary-source", {
             type: "geojson",
-            data: "/geojson/binhdong_boundary.geojson",
+            data: "/geojson/BD BINHDONG.geojson",
           });
 
-          // Vẽ mảng đa giác (Polygon Fill)
+          // Lớp phủ đa giác màu mượt mạ (Polygon Fill)
           map.addLayer({
-            id: "binhdong-fill",
+            id: "binhdong-fill-layer",
             type: "fill",
-            source: "binhdong-boundary",
+            source: "binhdong-boundary-source",
             paint: {
               "fill-color": "#10b981",
-              "fill-opacity": 0.12,
+              "fill-opacity": 0.15,
             },
           });
 
-          // Vẽ đường viền (Polygon Stroke)
+          // Lớp viền nét đứt sang trọng (Polygon Line Stroke)
           map.addLayer({
-            id: "binhdong-stroke",
+            id: "binhdong-line-layer",
             type: "line",
-            source: "binhdong-boundary",
+            source: "binhdong-boundary-source",
             paint: {
               "line-color": "#047857",
-              "line-width": 3,
-              "line-dasharray": [1, 1], // viền đứt nét nhẹ nhàng
+              "line-width": 2.5,
+              "line-dasharray": [2, 1],
             },
           });
 
-          // 4. Plot các ghim kiến nghị lên bản đồ
+          // 4. Cắm các Marker điểm ghim kiến nghị cử tri
           petitions.forEach((pet) => {
             const coords = getPetitionCoordinates(pet);
+            const isOverdue = pet.status === "Quá hạn" || (pet.status !== "Đã xong" && new Date(pet.deadline) < new Date());
             
-            // Xác định màu sắc marker
-            let markerColor = "#10b981"; // Đã xong: Xanh lá
-            if (pet.status === "Quá hạn" || (pet.status !== "Đã xong" && new Date(pet.deadline) < new Date())) {
-              markerColor = "#f43f5e"; // Quá hạn: Đỏ
+            let markerClass = "goong-custom-marker marker-completed";
+            let statusText = "Đã xong";
+            let badgeColor = "#10b981";
+
+            if (isOverdue) {
+              markerClass = "goong-custom-marker marker-overdue";
+              statusText = "Quá hạn";
+              badgeColor = "#ef4444";
             } else if (pet.status === "Đang xử lý") {
-              markerColor = "#f59e0b"; // Đang xử lý: Vàng
+              markerClass = "goong-custom-marker marker-in-progress";
+              statusText = "Đang xử lý";
+              badgeColor = "#f59e0b";
             }
 
-            // Tạo HTML Custom Marker Element
+            // Tạo thẻ HTML Marker
             const el = document.createElement("div");
-            el.className = "custom-map-marker";
-            el.style.width = "18px";
-            el.style.height = "18px";
-            el.style.borderRadius = "50%";
-            el.style.backgroundColor = markerColor;
-            el.style.border = "2.5px solid #fff";
-            el.style.boxShadow = "0 3px 6px rgba(0,0,0,0.3)";
-            el.style.cursor = "pointer";
+            el.className = markerClass;
+            el.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background: #ffffff;"></span>`;
 
-            // Tạo popup thông tin chi tiết
+            // HTML Popup thông tin
             const popupHTML = `
-              <div style="font-family: var(--font-sans); padding: 0.25rem; font-size: 0.8rem; color: #191918;">
-                <strong style="color: ${markerColor}; display: block; margin-bottom: 0.25rem;">[${pet.petitionCode}]</strong>
-                <div style="font-weight: 700; margin-bottom: 0.25rem;">Người gửi: ${pet.senderName}</div>
-                <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 0.5rem; line-height: 1.3;">
-                  Nội dung: ${pet.content.substring(0, 80)}${pet.content.length > 80 ? "..." : ""}
+              <div style="font-family: var(--font-sans), sans-serif; padding: 0.5rem; max-width: 240px; color: #191918;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <strong style="color: ${badgeColor}; font-size: 0.85rem;">[${pet.petitionCode}]</strong>
+                  <span style="font-size: 0.7rem; font-weight: 700; background: ${badgeColor}15; color: ${badgeColor}; padding: 0.1rem 0.4rem; border-radius: 999px;">${statusText}</span>
                 </div>
-                <div style="font-size: 0.72rem; color: var(--text-muted);">Địa điểm: ${pet.quarter || pet.location}</div>
-                <a href="/petitions/${pet.id}" style="display: block; margin-top: 0.5rem; color: var(--primary); font-weight: 700; text-decoration: underline;">Xem chi tiết →</a>
+                <div style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.25rem;">Người gửi: ${pet.senderName}</div>
+                <div style="font-size: 0.76rem; color: #555550; margin-bottom: 0.4rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                  ${pet.content}
+                </div>
+                <div style="font-size: 0.72rem; color: #888880; font-weight: 600;">📍 ${pet.quarter || pet.location}</div>
+                <a href="/petitions" style="display: inline-block; margin-top: 0.5rem; color: #6366f1; font-weight: 700; font-size: 0.78rem; text-decoration: underline;">Xem trong sổ theo dõi →</a>
               </div>
             `;
 
-            const popup = new goongjs.Popup({ offset: 10 }).setHTML(popupHTML);
+            const popup = new goongjs.Popup({ offset: 12, closeButton: true }).setHTML(popupHTML);
 
-            // Ghim lên bản đồ
             new goongjs.Marker(el)
               .setLngLat(coords)
               .setPopup(popup)
@@ -173,7 +190,7 @@ export default function GoongMap({ petitions }: GoongMapProps) {
         });
       } catch (err: any) {
         console.error("Lỗi khởi tạo bản đồ Goong:", err);
-        setError("Lỗi khởi tạo bản đồ Goong Map: Vui lòng kiểm tra cấu hình khóa API.");
+        setError(`Không thể kết nối đến máy chủ bản đồ Goong: ${err.message || "Kiểm tra khóa API"}`);
       }
     };
 
@@ -182,9 +199,10 @@ export default function GoongMap({ petitions }: GoongMapProps) {
       if (!script) {
         script = document.createElement("script");
         script.id = scriptId;
-        script.src = "/libs/goong-js.js";
+        script.src = "https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.js";
         script.async = true;
         script.onload = initMap;
+        script.onerror = () => setError("Không thể tải tập tin Goong Map SDK từ CDN.");
         document.body.appendChild(script);
       } else {
         script.addEventListener("load", initMap);
@@ -192,27 +210,24 @@ export default function GoongMap({ petitions }: GoongMapProps) {
     } else {
       initMap();
     }
-  }, [petitions]);
+  }, [petitions, GOONG_MAP_KEY, GOONG_API_KEY]);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "450px", borderRadius: "var(--radius-lg)", overflow: "hidden", border: "1px solid var(--border-color)" }}>
+    <div style={{ position: "relative", width: "100%", height, borderRadius: "16px", overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
       {error ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "2rem", backgroundColor: "#fef2f2", color: "#991b1b", textAlign: "center" }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: "0.5rem" }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <strong style={{ fontSize: "0.95rem" }}>Cấu hình Goong Map chưa hoàn tất</strong>
-          <span style={{ fontSize: "0.8rem", marginTop: "0.25rem", opacity: 0.85 }}>{error}</span>
-          <span style={{ fontSize: "0.75rem", marginTop: "0.5rem", color: "var(--text-secondary)" }}>
-            * Vui lòng bổ sung biến môi trường <code>NEXT_PUBLIC_GOONG_MAP_KEY</code> và <code>NEXT_PUBLIC_GOONG_API_KEY</code> để kích hoạt bản đồ nền.
-          </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "2rem", backgroundColor: "#fff1f2", color: "#9f1239", textAlign: "center" }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginBottom: "0.5rem" }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <strong style={{ fontSize: "1rem" }}>Cấu hình Goong Map chưa hoàn tất</strong>
+          <span style={{ fontSize: "0.85rem", marginTop: "0.25rem", opacity: 0.9 }}>{error}</span>
         </div>
       ) : (
         <>
           <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
           {!mapLoaded && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.7)", zIndex: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
-                <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                Đang tải bản đồ số phường Bình Đông...
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", zIndex: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.9rem", color: "#191918", fontWeight: "700" }}>
+                <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                Đang nạp dữ liệu địa hình Goong Map Phường Bình Đông...
               </div>
             </div>
           )}
