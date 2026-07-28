@@ -1033,3 +1033,368 @@ select.form-control {
   background-color: #10b981;
 }
 
+/* ============================================================
+   LED GLOW BUTTON & GLASSMORPHISM ACCENTS
+   Màu chủ đạo: Đỏ (#ff4d4d), Cam (#ff7a00), Trắng (#ffffff), Xanh dương Neon (#00f0ff), Vàng (#ffd700)
+   ============================================================ */
+.led-glow-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.85rem 1.6rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  z-index: 1;
+}
+
+.led-glow-btn::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(90deg, #ef4444, #f97316, #ffd700, #00f0ff, #ef4444);
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+  animation: ledGlowRotate 4s linear infinite;
+  pointer-events: none;
+}
+
+.led-glow-btn:hover::before,
+.led-glow-btn:focus::before {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.8)) drop-shadow(0 0 14px rgba(239, 68, 68, 0.7));
+}
+
+.led-glow-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 240, 255, 0.25), 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+.led-glow-btn:active {
+  transform: translateY(1px);
+}
+
+@keyframes ledGlowRotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glassmorphism Input Field with LED Glow on Focus */
+.led-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  font-size: 0.92rem;
+  outline: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+}
+
+.led-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.led-input:focus {
+  border-color: #00f0ff;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4), inset 0 0 6px rgba(0, 240, 255, 0.2);
+}
+
+/* ============================================================
+   LED GLOW BUTTON FOR LIGHT THEME APP UI (.led-glow-btn-light)
+   ============================================================ */
+.led-glow-btn-light {
+  position: relative;
+  background: #ffffff;
+  color: #121316;
+  border-radius: 12px;
+  padding: 0.65rem 1.35rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  z-index: 1;
+}
+
+.led-glow-btn-light::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(90deg, #ef4444, #f97316, #ffd700, #00f0ff, #ef4444);
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.35;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+  animation: ledGlowRotate 4s linear infinite;
+  pointer-events: none;
+}
+
+.led-glow-btn-light:hover::before,
+.led-glow-btn-light:focus::before {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.7)) drop-shadow(0 0 10px rgba(239, 68, 68, 0.5));
+}
+
+.led-glow-btn-light:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.18), 0 2px 10px rgba(239, 68, 68, 0.12);
+  background: #ffffff;
+  color: #121316;
+}
+
+.led-glow-btn-light:active {
+  transform: translateY(1px);
+}
+
+.led-glow-btn-danger {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.led-glow-btn-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ============================================================
+   EXPANDABLE USER CARDS STYLING
+   ============================================================ */
+.expandable-user-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.expandable-user-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 240, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.expandable-card-header {
+  padding: 1.35rem 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.expandable-card-header:hover {
+  background: rgba(245, 245, 247, 0.6);
+}
+
+.expandable-card-body {
+  padding: 0 1.75rem 1.5rem 1.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  margin-top: 0.25rem;
+  padding-top: 1.25rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.arrow-icon {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.arrow-icon.expanded {
+  transform: rotate(180deg);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   BENTO GRID LAYOUT SYSTEM
+   ============================================================ */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.bento-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  padding: 1.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.bento-card:hover {
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06);
+  transform: translateY(-3px);
+}
+
+.bento-span-4 { grid-column: span 4; }
+.bento-span-5 { grid-column: span 5; }
+.bento-span-6 { grid-column: span 6; }
+.bento-span-7 { grid-column: span 7; }
+.bento-span-8 { grid-column: span 8; }
+.bento-span-12 { grid-column: span 12; }
+
+@media (max-width: 1024px) {
+  .bento-span-4, .bento-span-5, .bento-span-6, .bento-span-7, .bento-span-8 {
+    grid-column: span 12;
+  }
+}
+
+/* ============================================================
+   STATUS-COLORED FLUID NEON BUTTONS (Blue & Red)
+   ============================================================ */
+.btn-neon-blue {
+  position: relative;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.65rem 1.35rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.btn-neon-blue::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(90deg, #00f0ff, #3b82f6, #00f0ff);
+  background-size: 200% 200%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.6;
+  animation: ledGlowRotate 3s linear infinite;
+  pointer-events: none;
+}
+
+.btn-neon-blue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 240, 255, 0.4), 0 0 15px rgba(37, 99, 235, 0.3);
+  filter: brightness(1.1);
+}
+
+.btn-neon-blue:active::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.8) 0%, rgba(37, 99, 235, 0) 70%);
+  animation: fluidRipple 0.6s cubic-bezier(0, 0, 0.2, 1);
+}
+
+.btn-neon-red {
+  position: relative;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.65rem 1.35rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.btn-neon-red::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(90deg, #ef4444, #f97316, #ef4444);
+  background-size: 200% 200%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.6;
+  animation: ledGlowRotate 3s linear infinite;
+  pointer-events: none;
+}
+
+.btn-neon-red:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4), 0 0 15px rgba(249, 115, 22, 0.3);
+  filter: brightness(1.1);
+}
+
+.btn-neon-red:active::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.8) 0%, rgba(249, 115, 22, 0) 70%);
+  animation: fluidRipple 0.6s cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes fluidRipple {
+  0% { transform: scale(0.2); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+
+
+

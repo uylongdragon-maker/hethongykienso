@@ -338,7 +338,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
           <button
             type="button"
             onClick={handleFetchGPS}
-            className="btn btn-secondary"
+            className="btn-neon-blue"
             style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0 1.1rem", borderColor: "#6366f1", color: "#6366f1" }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -408,10 +408,10 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
       </div>
 
       <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", justifyContent: "flex-end" }}>
-        <button type="button" onClick={onCancel} className="btn btn-secondary" disabled={loading}>
+        <button type="button" onClick={onCancel} className="btn-neon-blue" disabled={loading}>
           Hủy bỏ
         </button>
-        <button type="submit" className="btn btn-primary" style={{ minWidth: "140px" }} disabled={loading}>
+        <button type="submit" className="btn-neon-blue" style={{ minWidth: "140px" }} disabled={loading}>
           {loading ? "Đang lưu..." : "Lưu hồ sơ kiến nghị"}
         </button>
       </div>

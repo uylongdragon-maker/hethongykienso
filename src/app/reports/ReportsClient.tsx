@@ -302,7 +302,7 @@ export default function ReportsClient({ initialPetitions }: ReportsClientProps) 
                 <h3 className="detail-section-title" style={{ margin: 0 }}>{selectedQuarter}</h3>
                 <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "var(--text-secondary)" }}>Tổng số: {selectedPetitions.length} vụ việc</p>
               </div>
-              <button onClick={() => setSelectedQuarter(null)} className="btn btn-secondary" style={{ minWidth: "auto", padding: "0.4rem 0.6rem", borderRadius: "50%", display: "flex", alignItems: "center" }}>
+              <button onClick={() => setSelectedQuarter(null)} className="btn-neon-blue" style={{ minWidth: "auto", padding: "0.4rem 0.6rem", borderRadius: "50%", display: "flex", alignItems: "center" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>

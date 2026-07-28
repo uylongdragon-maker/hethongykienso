@@ -299,10 +299,10 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               </div>
 
               <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-                <a href="/petitions" className="btn btn-secondary" style={{ flexGrow: 1, textAlign: "center" }}>
+                <a href="/petitions" className="btn-neon-blue" style={{ flexGrow: 1, textAlign: "center" }}>
                   Hủy bỏ
                 </a>
-                <button type="submit" className="btn btn-primary" style={{ flexGrow: 2 }}>
+                <button type="submit" className="btn-neon-blue" style={{ flexGrow: 2 }}>
                   Lưu thay đổi
                 </button>
               </div>

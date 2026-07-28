@@ -2,13 +2,18 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import crypto from "crypto";
 
 const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Hàm chuẩn hóa địa chỉ
+function hashPassword(password: string): string {
+  const salt = "binhdong_salt_2026";
+  return crypto.createHmac("sha256", salt).update(password).digest("hex");
+}
+
 function sanitizeAddress(address: string): string {
   if (!address) return "";
   let cleaned = address.replace(/khu\s*phố\s*23|kp\s*23/gi, "");
@@ -23,11 +28,103 @@ function sanitizeAddress(address: string): string {
 }
 
 async function main() {
-  console.log("Starting database seeding with Petition model...");
+  console.log("Starting database seeding with CCCD & Roles...");
 
+  // Clear existing tables
   await prisma.petition.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.administrativeUnit.deleteMany({});
   console.log("Cleared old records.");
 
+  // 1. Seed Vietnamese Administrative Units
+  const hcm = await prisma.administrativeUnit.create({
+    data: {
+      code: "79",
+      name: "Thành phố Hồ Chí Minh",
+      nameEn: "Ho Chi Minh City",
+      fullName: "Thành phố Hồ Chí Minh",
+      level: "TinhThanh",
+    },
+  });
+
+  const q8 = await prisma.administrativeUnit.create({
+    data: {
+      code: "760",
+      name: "Quận 8",
+      nameEn: "Quan 8",
+      fullName: "Quận 8, Thành phố Hồ Chí Minh",
+      level: "QuanHuyen",
+      parentId: hcm.id,
+    },
+  });
+
+  const binhDong = await prisma.administrativeUnit.create({
+    data: {
+      code: "26830",
+      name: "Phường Bình Đông",
+      nameEn: "Phuong Binh Dong",
+      fullName: "Phường Bình Đông, Quận 8, Thành phố Hồ Chí Minh",
+      level: "PhuongXa",
+      parentId: q8.id,
+    },
+  });
+
+  for (let i = 1; i <= 5; i++) {
+    const quarterNum = i.toString().padStart(2, "0");
+    await prisma.administrativeUnit.create({
+      data: {
+        code: `26830-${quarterNum}`,
+        name: `Khu phố ${quarterNum}`,
+        fullName: `Khu phố ${quarterNum}, Phường Bình Đông, Quận 8, TP. Hồ Chí Minh`,
+        level: "KhuPho",
+        parentId: binhDong.id,
+      },
+    });
+  }
+
+  // 2. Seed Accounts with CCCD:
+  const users = [
+    {
+      username: "admin",
+      passwordHash: hashPassword("123456"),
+      fullName: "Quản Trị Viên Hệ Thống",
+      cccd: "079090000001",
+      email: "admin@binhdong.gov.vn",
+      phone: "0909111222",
+      role: "ADMIN",
+      department: "Ban Quản trị & Phê duyệt Hệ thống",
+      administrativeUnitId: binhDong.id,
+    },
+    {
+      username: "chuyenvien",
+      passwordHash: hashPassword("123456"),
+      fullName: "Chuyên Viên Xử Lý Hồ Sơ",
+      cccd: "079090000002",
+      email: "chuyenvien@binhdong.gov.vn",
+      phone: "0908333444",
+      role: "CHUYEN_VIEN",
+      department: "Phòng Tổng hợp & Tiếp nhận Hồ sơ",
+      administrativeUnitId: binhDong.id,
+    },
+    {
+      username: "canbo_binhdong",
+      passwordHash: hashPassword("canbo123"),
+      fullName: "Phạm Văn Bình",
+      cccd: "079090000003",
+      email: "canbo@binhdong.gov.vn",
+      phone: "0907555666",
+      role: "CAN_BO",
+      department: "Phòng KT-HT & Đô thị",
+      administrativeUnitId: binhDong.id,
+    },
+  ];
+
+  for (const user of users) {
+    const createdUser = await prisma.user.create({ data: user });
+    console.log(`Created User: ${createdUser.username} (${createdUser.fullName}) [CCCD: ${createdUser.cccd}] [Role: ${createdUser.role}]`);
+  }
+
+  // 3. Seed Petitions
   const petitions = [
     {
       petitionCode: "KN2024-001",
@@ -69,7 +166,7 @@ async function main() {
       replyDocNumber: "Số 12/UBND",
       replyDocLink: "https://example.com/reply-12.pdf",
       reviewStatus: "Hoàn thành",
-      notes: "Đúng hạn",
+      notes: "Đã được Admin phê duyệt hoàn tất",
     },
     {
       petitionCode: "KN2026-042",
@@ -86,22 +183,20 @@ async function main() {
       receivedDate: new Date("2026-01-20T08:00:00Z"),
       deadline: new Date("2026-02-19T17:00:00Z"),
       extendedUntil: null,
-      status: "Đang xử lý",
-      replyDocNumber: "Đang chờ Cty DVCI phối hợp",
+      status: "Đang chờ ý kiến cấp trên",
+      replyDocNumber: "Đã lập dự thảo xử lý",
       replyDocLink: null,
-      reviewStatus: "Chưa giải quyết",
-      notes: "Đã gửi công văn",
+      reviewStatus: "Mới giải quyết 1 phần",
+      notes: "Chuyên viên đã trình Admin phê duyệt văn bản trả lời",
     },
   ];
 
   for (const item of petitions) {
-    const created = await prisma.petition.create({
-      data: item,
-    });
+    const created = await prisma.petition.create({ data: item });
     console.log(`Created petition: ${created.petitionCode} - ${created.senderName}`);
   }
 
-  console.log("Seeding complete!");
+  console.log("Seeding finished successfully!");
 }
 
 main()

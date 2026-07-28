@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 
@@ -11,15 +12,48 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
+interface UserSession {
+  id: string;
+  username: string;
+  fullName: string;
+  role: "ADMIN" | "CHUYEN_VIEN" | "CAN_BO" | "NGUOI_DAN" | string;
+  department?: string;
+  unitName?: string;
+}
+
 export default function MainLayout({ children }: MainLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState<UserSession | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+
   const sidebarRef = useRef<HTMLElement>(null);
   const navItemsRef = useRef<HTMLUListElement>(null);
 
+  // Fetch current user session
+  useEffect(() => {
+    async function checkUser() {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
+      } finally {
+        setLoadingUser(false);
+      }
+    }
+    checkUser();
+  }, [pathname]);
+
   // Animate sidebar nav links on mount
   useGSAP(() => {
-    if (navItemsRef.current) {
+    if (navItemsRef.current && pathname !== "/login") {
       gsap.from(navItemsRef.current.querySelectorAll(".nav-link"), {
         opacity: 0,
         x: -16,
@@ -30,11 +64,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         delay: 0.1,
       });
     }
-  }, { scope: sidebarRef });
+  }, { scope: sidebarRef, dependencies: [pathname] });
 
   // Animate sidebar expand/collapse
   useEffect(() => {
-    if (sidebarRef.current) {
+    if (sidebarRef.current && pathname !== "/login") {
       if (collapsed) {
         gsap.to(sidebarRef.current, {
           opacity: 0,
@@ -50,9 +84,25 @@ export default function MainLayout({ children }: MainLayoutProps) {
         );
       }
     }
-  }, [collapsed]);
+  }, [collapsed, pathname]);
 
-  const navItems = [
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
+      router.push("/login");
+      router.refresh();
+    } catch (err) {
+      console.error("Logout Error:", err);
+    }
+  };
+
+  // If on login route, render standalone children
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  const baseNavItems = [
     {
       href: "/",
       label: "Tổng quan vụ việc",
@@ -101,6 +151,40 @@ export default function MainLayout({ children }: MainLayoutProps) {
       ),
     },
   ];
+
+  // If Admin, add User Management nav item
+  const navItems = user?.role === "ADMIN"
+    ? [
+        ...baseNavItems,
+        {
+          href: "/users",
+          label: "Quản lý tài khoản",
+          icon: (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          ),
+        },
+      ]
+    : baseNavItems;
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "Quản trị hệ thống";
+      case "CHUYEN_VIEN":
+        return "Chuyên viên xử lý hồ sơ";
+      case "CAN_BO":
+        return "Cán bộ Phường";
+      case "NGUOI_DAN":
+        return "Cử tri công dân";
+      default:
+        return "Người dùng";
+    }
+  };
 
   return (
     <div className={`app-container ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -170,10 +254,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem", overflow: "hidden" }}>
               <span className="logo-text" style={{ fontSize: "0.65rem", lineHeight: "1.25", fontWeight: 800, whiteSpace: "nowrap", letterSpacing: "-0.02em" }}>
-                HỆ THỐNG TIẾP NHẬN & GQKN
+                HỆ THỐNG Ý KIẾN SỐ
               </span>
               <span style={{ fontSize: "0.54rem", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
-                HÀNH CHÍNH SÓ P. BÌNH ĐÔNG
+                HÀNH CHÍNH SỐ P. BÌNH ĐÔNG
               </span>
             </div>
           </div>
@@ -225,7 +309,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   : pathname.startsWith(item.href);
               return (
                 <li key={item.href}>
-                  <a
+                  <Link
                     href={item.href}
                     className={`nav-link${isActive ? " active" : ""}`}
                     style={{
@@ -238,7 +322,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         : {}),
                     }}
                   >
-                    {/* Active indicator pill */}
                     {isActive && (
                       <span style={{
                         position: "absolute",
@@ -259,7 +342,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       {item.icon}
                     </span>
                     <span className="nav-text">{item.label}</span>
-                  </a>
+                  </Link>
                 </li>
               );
             })}
@@ -288,7 +371,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
             padding: "0.6rem 2.75rem",
             background: "rgba(245, 245, 247, 0.88)",
             backdropFilter: "blur(20px)",
@@ -299,14 +382,68 @@ export default function MainLayout({ children }: MainLayoutProps) {
             zIndex: 10,
           }}
         >
-          <span style={{
-            fontSize: "0.7rem",
-            color: "var(--text-muted)",
-            fontWeight: "700",
-            letterSpacing: "0.1em",
-          }}>
-            HỆ THỐNG Ý KIẾN SỐ
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: "#00f0ff",
+                boxShadow: "0 0 8px #00f0ff",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "0.78rem",
+                color: "#121316",
+                fontWeight: "800",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Ý KIẾN SỐ <span style={{ color: "#6b7280", fontWeight: 600 }}>• P. BÌNH ĐÔNG</span>
+            </span>
+          </div>
+
+          {/* User Status / Login Pill Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                  <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                    {user.fullName}
+                  </span>
+                  <span style={{ fontSize: "0.62rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                    {getRoleLabel(user.role)} {user.department ? `• ${user.department}` : ""}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="led-glow-btn-light"
+                  style={{
+                    padding: "0.35rem 0.75rem",
+                    fontSize: "0.74rem",
+                  }}
+                  title="Đăng xuất khỏi tài khoản"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            ) : !loadingUser ? (
+              <a
+                href="/login"
+                className="led-glow-btn-light"
+                style={{
+                  backgroundColor: "#121316",
+                  color: "#ffffff",
+                  padding: "0.45rem 0.95rem",
+                  fontSize: "0.78rem",
+                  textDecoration: "none",
+                }}
+              >
+                Đăng nhập Cán bộ
+              </a>
+            ) : null}
+          </div>
         </header>
         {children}
       </main>

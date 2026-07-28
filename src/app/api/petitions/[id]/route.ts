@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
-// 1. PUT: Cập nhật chi tiết kết quả xử lý kiến nghị
+// 1. PUT: Cập nhật chi tiết kết quả xử lý kiến nghị (Có phân quyền Chuyên viên vs Admin)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Vui lòng đăng nhập để thực hiện thao tác." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const {
@@ -31,25 +40,18 @@ export async function PUT(
       );
     }
 
-    // Kiểm tra tính hợp lệ của trạng thái nếu có gửi lên
-    if (status) {
-      const validStatuses = ["Đang xử lý", "Đã xong", "Đang chờ ý kiến cấp trên", "Quá hạn"];
-      if (!validStatuses.includes(status)) {
-        return NextResponse.json(
-          { success: false, error: "Trạng thái giải quyết không hợp lệ." },
-          { status: 400 }
-        );
-      }
-    }
+    let finalStatus = status || existing.status;
+    let finalReviewStatus = reviewStatus || existing.reviewStatus;
+    let systemNotes = notes !== undefined ? notes : existing.notes;
 
-    // Kiểm tra tính hợp lệ của kết quả rà soát
-    if (reviewStatus) {
-      const validReviewStatuses = ["Hoàn thành", "Chưa giải quyết", "Mới giải quyết 1 phần"];
-      if (!validReviewStatuses.includes(reviewStatus)) {
-        return NextResponse.json(
-          { success: false, error: "Kết quả rà soát không hợp lệ." },
-          { status: 400 }
-        );
+    // PHÂN QUYỀN VÀ TRÌNH DUYỆT:
+    // Nếu là CHUYEN_VIEN và gửi trạng thái "Đã xong" hoặc "Hoàn thành",
+    // Chuyên viên không được tự duyệt dứt điểm mà tự động đẩy request duyệt về Admin ("Đang chờ ý kiến cấp trên")
+    if (session.role === "CHUYEN_VIEN") {
+      if (status === "Đã xong" || reviewStatus === "Hoàn thành") {
+        finalStatus = "Đang chờ ý kiến cấp trên";
+        finalReviewStatus = "Mới giải quyết 1 phần";
+        systemNotes = `[Chuyên viên ${session.fullName} trình Admin phê duyệt kết quả]: ${notes || "Đã xử lý xong dự thảo trả lời"}`;
       }
     }
 
@@ -57,17 +59,24 @@ export async function PUT(
     const updated = await prisma.petition.update({
       where: { id },
       data: {
-        status: status || existing.status,
+        status: finalStatus,
         replyDocNumber: replyDocNumber !== undefined ? replyDocNumber : existing.replyDocNumber,
         replyDocDate: replyDocDate ? new Date(replyDocDate) : (replyDocDate === null ? null : existing.replyDocDate),
         replyDocLink: replyDocLink !== undefined ? replyDocLink : existing.replyDocLink,
         extendedUntil: extendedUntil ? new Date(extendedUntil) : (extendedUntil === null ? null : existing.extendedUntil),
-        reviewStatus: reviewStatus || existing.reviewStatus,
-        notes: notes !== undefined ? notes : existing.notes,
+        reviewStatus: finalReviewStatus,
+        notes: systemNotes,
       },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message:
+        session.role === "CHUYEN_VIEN" && (status === "Đã xong" || reviewStatus === "Hoàn thành")
+          ? "Đã gửi yêu cầu trình duyệt về Admin thành công!"
+          : "Cập nhật thông tin thành công.",
+    });
   } catch (error: any) {
     console.error("Lỗi cập nhật vụ việc:", error);
     return NextResponse.json(
@@ -77,15 +86,33 @@ export async function PUT(
   }
 }
 
-// 2. DELETE: Xóa vụ việc
+// 2. DELETE: Xóa vụ việc (CHỈ DÀNH CHO ADMIN)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Vui lòng đăng nhập để thực hiện thao tác." },
+        { status: 401 }
+      );
+    }
+
+    // CHUYÊN VIÊN KHÔNG ĐƯỢC XÓA DỮ LIỆU
+    if (session.role !== "ADMIN") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Tài khoản Chuyên viên không có thẩm quyền xóa dữ liệu! Chỉ Quản trị viên (ADMIN) mới có quyền xóa.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
-    // Kiểm tra bản ghi tồn tại
     const existing = await prisma.petition.findUnique({
       where: { id },
     });
@@ -101,7 +128,7 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: "Đã xóa vụ việc thành công." });
+    return NextResponse.json({ success: true, message: "Đã xóa vụ việc thành công bởi Quản trị viên." });
   } catch (error: any) {
     console.error("Lỗi xóa vụ việc:", error);
     return NextResponse.json(

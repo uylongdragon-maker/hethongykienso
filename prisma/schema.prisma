@@ -45,3 +45,53 @@ model Petition {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
+
+// Bảng Đơn vị Hành chính Việt Nam (vietnamese_administrative_units)
+model AdministrativeUnit {
+  id          String   @id @default(cuid())
+  code        String   @unique // Mã đơn vị hành chính (ví dụ: "79", "760", "26830")
+  name        String   // Tên đơn vị (ví dụ: "Phường Bình Đông")
+  nameEn      String?  // Tên tiếng Anh / không dấu
+  fullName    String   // Tên đầy đủ (ví dụ: "Phường Bình Đông, Quận 8, Thành phố Hồ Chí Minh")
+  level       String   // Cấp hành chính: TinhThanh / QuanHuyen / PhuongXa / KhuPho
+  parentId    String?  // Mã đơn vị cấp trên (nếu có)
+  
+  parent      AdministrativeUnit?  @relation("UnitHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    AdministrativeUnit[] @relation("UnitHierarchy")
+  users       User[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vietnamese_administrative_units")
+}
+
+// Bảng Người dùng & Cán bộ (User)
+model User {
+  id                   String              @id @default(cuid())
+  username             String              @unique // Tên đăng nhập
+  passwordHash         String              // Mật khẩu đã băm
+  fullName             String              // Họ tên cán bộ / công dân
+  cccd                 String?             @unique // Số CCCD (dùng để khôi phục mật khẩu & định danh chính chủ)
+  email                String?             // Email liên hệ
+  phone                String?             // Số điện thoại
+  role                 String              // Vai trò: ADMIN, CHUYEN_VIEN, CAN_BO, NGUOI_DAN
+  department           String?             // Phòng ban / Đơn vị trực thuộc
+  position             String?             @default("Chuyên viên thống kê báo cáo") // Chức vụ
+  avatarUrl            String?             // Đường dẫn ảnh thẻ 3x4
+  
+  // Các trường gửi yêu cầu thay đổi thông tin cá nhân (Chờ Admin duyệt)
+  pendingFullName      String?             // Họ tên mới yêu cầu thay đổi
+  pendingCccd          String?             // Số CCCD mới yêu cầu thay đổi
+  pendingPosition      String?             // Chức vụ mới yêu cầu thay đổi
+  changeRequestStatus  String?             // PENDING, APPROVED, REJECTED
+  changeRequestedAt    DateTime?           // Thời gian gửi yêu cầu
+  
+  administrativeUnitId String?             // Đơn vị hành chính trực thuộc
+  administrativeUnit   AdministrativeUnit? @relation(fields: [administrativeUnitId], references: [id], onDelete: SetNull)
+
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@map("users")
+}
