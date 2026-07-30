@@ -46,10 +46,10 @@ export async function PUT(
 
     // PHÂN QUYỀN VÀ TRÌNH DUYỆT:
     // Nếu là CHUYEN_VIEN và gửi trạng thái "Đã xong" hoặc "Hoàn thành",
-    // Chuyên viên không được tự duyệt dứt điểm mà tự động đẩy request duyệt về Admin ("Đang chờ ý kiến cấp trên")
+    // Chuyên viên không được tự duyệt dứt điểm mà tự động đẩy request duyệt về Admin ("Chờ Admin phê duyệt")
     if (session.role === "CHUYEN_VIEN") {
       if (status === "Đã xong" || reviewStatus === "Hoàn thành") {
-        finalStatus = "Đang chờ ý kiến cấp trên";
+        finalStatus = "Chờ Admin phê duyệt";
         finalReviewStatus = "Mới giải quyết 1 phần";
         systemNotes = `[Chuyên viên ${session.fullName} trình Admin phê duyệt kết quả]: ${notes || "Đã xử lý xong dự thảo trả lời"}`;
       }

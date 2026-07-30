@@ -32,7 +32,7 @@ export async function updatePetitionResolution(id: string, formData: FormData) {
     throw new Error("Vui lòng điền đầy đủ các thông tin bắt buộc.");
   }
 
-  const validStatuses = ["Đang xử lý", "Đã xong", "Đang chờ ý kiến cấp trên", "Quá hạn"];
+  const validStatuses = ["Đang xử lý", "Đã xong", "Chờ Admin phê duyệt", "Quá hạn"];
   if (!validStatuses.includes(status)) {
     throw new Error("Trạng thái giải quyết không hợp lệ.");
   }

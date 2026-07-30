@@ -108,7 +108,7 @@ export default function OverviewClient({ initialPetitions }: OverviewClientProps
       if (p.status === "Đã xong") completed++;
       else {
         inProgress++;
-        if (p.status === "Đang chờ ý kiến cấp trên") pendingAdmin++;
+        if (p.status === "Chờ Admin phê duyệt") pendingAdmin++;
         if (isOverdue(p)) overdue++;
       }
     });
@@ -355,11 +355,11 @@ export default function OverviewClient({ initialPetitions }: OverviewClientProps
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
-                <span className={`status-badge ${p.status === "Đã xong" ? "status-completed" : p.status === "Đang chờ ý kiến cấp trên" ? "status-expired" : "status-in-progress"}`}>
+                <span className={`status-badge ${p.status === "Đã xong" ? "status-completed" : p.status === "Chờ Admin phê duyệt" ? "status-expired" : "status-in-progress"}`}>
                   {p.status}
                 </span>
                 <a href={`/petitions/${p.id}`}
-                  className={p.status === "Đang chờ ý kiến cấp trên" ? "btn-neon-red" : "btn-neon-blue"}
+                  className={p.status === "Chờ Admin phê duyệt" ? "btn-neon-red" : "btn-neon-blue"}
                   style={{ padding: "0.35rem 0.75rem", fontSize: "0.74rem", textDecoration: "none" }}>
                   Chi tiết
                 </a>

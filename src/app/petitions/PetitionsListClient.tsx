@@ -389,8 +389,8 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         return <span className="badge badge-resolved">Đã xong</span>;
       case "Đang xử lý":
         return <span className="badge badge-in-progress">Đang xử lý</span>;
-      case "Đang chờ ý kiến cấp trên":
-        return <span className="badge badge-new" style={{ color: "var(--info)", backgroundColor: "var(--info-bg)" }}>Đang chờ ý kiến cấp trên</span>;
+      case "Chờ Admin phê duyệt":
+        return <span className="badge badge-new" style={{ color: "var(--info)", backgroundColor: "var(--info-bg)" }}>Chờ Admin phê duyệt</span>;
       default:
         return <span className="badge">{pet.status}</span>;
     }
@@ -568,7 +568,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
               <option value="ALL">Tất cả trạng thái</option>
               <option value="Đang xử lý">Đang xử lý</option>
               <option value="Đã xong">Đã xong</option>
-              <option value="Đang chờ ý kiến cấp trên">Đang chờ ý kiến cấp trên</option>
+              <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
               <option value="OVERDUE">Quá hạn</option>
             </select>
           </div>
@@ -836,7 +836,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                 >
                   <option value="Đang xử lý">Đang xử lý</option>
                   <option value="Đã xong">Đã xong</option>
-                  <option value="Đang chờ ý kiến cấp trên">Đang chờ ý kiến cấp trên</option>
+                  <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
                   <option value="Quá hạn">Quá hạn</option>
                 </select>
               </div>

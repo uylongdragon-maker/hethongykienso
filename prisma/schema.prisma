@@ -33,7 +33,7 @@ model Petition {
   extendedUntil   DateTime? // Thời gian gia hạn (nếu có)
 
   // Trạng thái & Văn bản
-  status          String    // Trạng thái xử lý: Đang xử lý, Đã xong, Đang chờ ý kiến cấp trên, Quá hạn
+  status          String    // Trạng thái xử lý: Đang xử lý, Đã xong, Chờ Admin phê duyệt, Quá hạn
   replyDocNumber  String?   // Số hiệu văn bản trả lời
   replyDocDate    DateTime? // Ngày ban hành văn bản trả lời
   replyDocLink    String?   // Link văn bản trả lời

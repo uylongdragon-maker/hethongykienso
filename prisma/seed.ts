@@ -193,7 +193,7 @@ async function main() {
       receivedDate: new Date("2026-01-20T08:00:00Z"),
       deadline: new Date("2026-02-19T17:00:00Z"),
       extendedUntil: null,
-      status: "Đang chờ ý kiến cấp trên",
+      status: "Chờ Admin phê duyệt",
       replyDocNumber: "Số 18/TTr-UBND",
       replyDocDate: null,
       replyDocLink: null,

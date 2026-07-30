@@ -25,7 +25,7 @@ export async function PATCH(
 
     // Kiểm tra tính hợp lệ của trạng thái nếu có gửi lên
     if (status) {
-      const validStatuses = ["Đang xử lý", "Đã xong", "Đang chờ ý kiến cấp trên", "Quá hạn"];
+      const validStatuses = ["Đang xử lý", "Đã xong", "Chờ Admin phê duyệt", "Quá hạn"];
       if (!validStatuses.includes(status)) {
         return NextResponse.json(
           { success: false, error: "Trạng thái giải quyết không hợp lệ." },

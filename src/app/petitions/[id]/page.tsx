@@ -236,7 +236,7 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                 >
                   <option value="Đang xử lý">Đang xử lý</option>
                   <option value="Đã xong">Đã xong</option>
-                  <option value="Đang chờ ý kiến cấp trên">Đang chờ ý kiến cấp trên</option>
+                  <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
                   <option value="Quá hạn">Quá hạn</option>
                 </select>
               </div>
