@@ -14,16 +14,12 @@ export const SOURCES = [
 ];
 
 export const CATEGORIES = [
-  "Quản lý đô thị",
-  "Đất đai",
-  "Môi trường",
-  "An ninh trật tự",
-  "Chế độ chính sách",
   "Quy hoạch, quy hoạch đô thị, phát triển hạ tầng kỹ thuật và hạ tầng xã hội trên địa bàn",
   "Kế hoạch, đầu tư",
   "Tài chính",
   "Ngân sách",
   "Liên kết, hợp tác giữa các đơn vị hành chính",
+  "Đất đai",
   "Tài nguyên, môi trường",
   "Nông, lâm, ngư nghiệp",
   "Công nghiệp",
@@ -39,6 +35,10 @@ export const CATEGORIES = [
   "Đổi mới sáng tạo, chuyển đổi số",
   "Quốc phòng, an ninh",
   "Dân tộc và tôn giáo ở địa phương",
+  "Quản lý đô thị",
+  "Môi trường",
+  "An ninh trật tự",
+  "Chế độ chính sách",
 ];
 
 export const DEPARTMENTS = [
