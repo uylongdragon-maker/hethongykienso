@@ -1,6 +1,15 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { updatePetitionResolution } from "./actions";
+import FileUpload from "@/components/FileUpload";
+import {
+  CATEGORIES,
+  SOURCES,
+  DEPARTMENTS,
+  AUTHORITIES,
+  STATUSES,
+  REVIEW_STATUSES,
+} from "@/lib/constants";
 
 export const revalidate = 0;
 
@@ -20,14 +29,6 @@ export default async function PetitionDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const formatDateShort = (date: Date) => {
-    return date.toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
   // Trích xuất ngày định dạng YYYY-MM-DD để đưa vào input date
   const toInputDateFormat = (date: Date | null) => {
     if (!date) return "";
@@ -36,6 +37,27 @@ export default async function PetitionDetailPage({ params }: PageProps) {
 
   // Ràng buộc id cho Server Action
   const updatePetitionWithId = updatePetitionResolution.bind(null, id);
+
+  // Đảm bảo giá trị hiện tại luôn có trong danh sách lựa chọn (dù là dữ liệu cũ hoặc tùy chỉnh)
+  const currentCategory = petition.category || "Quản lý đô thị";
+  const allCategories = CATEGORIES.includes(currentCategory)
+    ? CATEGORIES
+    : [currentCategory, ...CATEGORIES];
+
+  const currentSource = petition.source || SOURCES[0];
+  const allSources = SOURCES.includes(currentSource)
+    ? SOURCES
+    : [currentSource, ...SOURCES];
+
+  const currentDept = petition.department || DEPARTMENTS[0];
+  const allDepartments = DEPARTMENTS.includes(currentDept)
+    ? DEPARTMENTS
+    : [currentDept, ...DEPARTMENTS];
+
+  const currentAuthority = petition.authority || AUTHORITIES[0];
+  const allAuthorities = AUTHORITIES.includes(currentAuthority)
+    ? AUTHORITIES
+    : [currentAuthority, ...AUTHORITIES];
 
   return (
     <div>
@@ -61,7 +83,9 @@ export default async function PetitionDetailPage({ params }: PageProps) {
           <h1 className="page-title">
             Cập nhật kết quả giải quyết {petition.petitionCode}
           </h1>
-          <p className="page-subtitle">Cập nhật số hiệu văn bản trả lời, tiến độ giải quyết và ý kiến rà soát</p>
+          <p className="page-subtitle">
+            Cập nhật văn bản trả lời, tiến độ giải quyết và ý kiến rà soát
+          </p>
         </div>
       </div>
 
@@ -109,25 +133,24 @@ export default async function PetitionDetailPage({ params }: PageProps) {
 
               <div className="form-group">
                 <label className="form-label">Nguồn tiếp nhận</label>
-                <select name="source" defaultValue={petition.source} className="form-control" required>
-                  <option value="Tiếp xúc cử tri (trước kỳ họp)">Tiếp xúc cử tri (trước kỳ họp)</option>
-                  <option value="Tiếp xúc cử tri (sau kỳ họp)">Tiếp xúc cử tri (sau kỳ họp)</option>
-                  <option value="Tiếp xúc cử tri (hàng tuần)">Tiếp xúc cử tri (hàng tuần)</option>
-                  <option value="Sau giám sát">Sau giám sát</option>
-                  <option value="Đơn thư trực tiếp">Đơn thư trực tiếp</option>
-                  <option value="Cổng DVC Quốc gia">Cổng DVC Quốc gia</option>
+                <select name="source" defaultValue={currentSource} className="form-control" required>
+                  {allSources.map((src) => (
+                    <option key={src} value={src}>
+                      {src}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div className="form-group">
-                  <label className="form-label">Lĩnh vực</label>
-                  <select name="category" defaultValue={petition.category} className="form-control" required>
-                    <option value="Quản lý đô thị">Quản lý đô thị</option>
-                    <option value="Đất đai">Đất đai</option>
-                    <option value="Môi trường">Môi trường</option>
-                    <option value="An ninh trật tự">An ninh trật tự</option>
-                    <option value="Chế độ chính sách">Chế độ chính sách</option>
+                  <label className="form-label">Lĩnh vực phản ánh</label>
+                  <select name="category" defaultValue={currentCategory} className="form-control" required>
+                    {allCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
@@ -143,21 +166,23 @@ export default async function PetitionDetailPage({ params }: PageProps) {
 
               <div className="form-group">
                 <label className="form-label">Đơn vị xử lý trực tiếp</label>
-                <select name="department" defaultValue={petition.department} className="form-control" required>
-                  <option value="Phòng KT-HT và Đô thị">Phòng KT-HT và Đô thị</option>
-                  <option value="Phòng Văn hóa - Xã hội">Phòng Văn hóa - Xã hội</option>
-                  <option value="Phòng Địa chính - Nhà đất">Phòng Địa chính - Nhà đất</option>
-                  <option value="Tổ Trật tự Đô thị">Tổ Trật tự Đô thị</option>
-                  <option value="Sở Giao thông Vận tải">Sở Giao thông Vận tải</option>
-                  <option value="Sở Xây dựng">Sở Xây dựng</option>
+                <select name="department" defaultValue={currentDept} className="form-control" required>
+                  {allDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Thẩm quyền xử lý</label>
-                <select name="authority" defaultValue={petition.authority} className="form-control" required>
-                  <option value="UBND phường">UBND phường</option>
-                  <option value="Các Sở, ban ngành Thành phố">Các Sở, ban ngành Thành phố</option>
+                <select name="authority" defaultValue={currentAuthority} className="form-control" required>
+                  {allAuthorities.map((auth) => (
+                    <option key={auth} value={auth}>
+                      {auth}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -184,13 +209,11 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Tài liệu đính kèm (Link URL)</label>
-                <input
-                  type="text"
+                <label className="form-label">Tài liệu đính kèm ban đầu (nếu có)</label>
+                <FileUpload
                   name="attachmentUrl"
-                  defaultValue={petition.attachmentUrl || ""}
-                  className="form-control"
-                  placeholder="https://..."
+                  defaultValue={petition.attachmentUrl}
+                  placeholder="Tải lên tệp đính kèm hoặc nhập URL"
                 />
               </div>
 
@@ -234,10 +257,11 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   className="form-control"
                   required
                 >
-                  <option value="Đang xử lý">Đang xử lý</option>
-                  <option value="Đã xong">Đã xong</option>
-                  <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
-                  <option value="Quá hạn">Quá hạn</option>
+                  {STATUSES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -263,13 +287,11 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Link văn bản trả lời (Đường dẫn PDF)</label>
-                <input
-                  type="text"
+                <label className="form-label">Văn bản kết quả trả lời (Tải file hoặc dán link)</label>
+                <FileUpload
                   name="replyDocLink"
-                  defaultValue={petition.replyDocLink || ""}
-                  placeholder="Ví dụ: https://example.com/reply.pdf"
-                  className="form-control"
+                  defaultValue={petition.replyDocLink}
+                  placeholder="Tải lên tệp văn bản trả lời (PDF, Word, Ảnh...)"
                 />
               </div>
 
@@ -281,9 +303,11 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   className="form-control"
                   required
                 >
-                  <option value="Hoàn thành">Hoàn thành</option>
-                  <option value="Chưa giải quyết">Chưa giải quyết</option>
-                  <option value="Mới giải quyết 1 phần">Mới giải quyết 1 phần</option>
+                  {REVIEW_STATUSES.map((rv) => (
+                    <option key={rv} value={rv}>
+                      {rv}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -500,24 +500,56 @@ select.form-control {
    ============================================================ */
 .table-container {
   overflow-x: auto;
+  overflow-y: auto;
   width: 100%;
+  max-height: 72vh;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 10px;
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
 }
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .data-table th {
   padding: 0.75rem 1.25rem;
-  background-color: #fafaf9;
+  background-color: #f8fafc !important;
   color: var(--text-primary);
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .data-table td {

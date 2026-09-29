@@ -1,58 +1,14 @@
 "use client";
-
 import { useState } from "react";
+import FileUpload from "@/components/FileUpload";
+import { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES } from "@/lib/constants";
+
+export { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES };
 
 interface PetitionFormProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
-
-export const SOURCES = [
-  "Trước kỳ họp (Thành phố)",
-  "Sau kỳ họp (Thành phố)",
-  "Trước kỳ họp (Phường)",
-  "Sau kỳ họp (Phường)",
-  "Tiếp xúc cử tri (hàng tuần)",
-  "Sau giám sát",
-  "Đơn thư trực tiếp",
-  "Cổng DVC Quốc gia",
-];
-
-export const CATEGORIES = [
-  "Quy hoạch, quy hoạch đô thị, phát triển hạ tầng kỹ thuật và hạ tầng xã hội trên địa bàn",
-  "Kế hoạch, đầu tư",
-  "Tài chính",
-  "Ngân sách",
-  "Liên kết, hợp tác giữa các đơn vị hành chính",
-  "Đất đai",
-  "Tài nguyên, môi trường",
-  "Nông, lâm, ngư nghiệp",
-  "Công nghiệp",
-  "Thương mại, dịch vụ",
-  "Du lịch",
-  "Xây dựng và giao thông ở địa phương",
-  "Tổ chức bộ máy và xây dựng chính quyền",
-  "Giáo dục",
-  "Y tế",
-  "Văn hóa, xã hội",
-  "Thể dục, thể thao",
-  "Khoa học, công nghệ, thông tin",
-  "Đổi mới sáng tạo, chuyển đổi số",
-  "Quốc phòng, an ninh",
-  "Dân tộc và tôn giáo ở địa phương",
-];
-
-export const DEPARTMENTS = [
-  "Phòng Kinh tế, Hạ tầng và Đô thị phường",
-  "Phòng Văn hóa - Xã hội",
-  "Trung tâm phục vụ hành chính công phường",
-  "Văn phòng HĐND & UBND phường",
-  "Trung tâm cung ứng dịch vụ công phường",
-  "Ban Quản lý dự án đầu tư xây dựng phường",
-  "Công an phường",
-  "Quân sự phường",
-  "UBMTTQVN phường",
-];
 
 export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps) {
   const [loading, setLoading] = useState(false);
@@ -363,15 +319,11 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
       </div>
 
       <div className="form-group">
-        <label className="form-label" style={{ fontWeight: "600", fontSize: "0.8rem", marginBottom: "0.25rem", display: "block" }}>
-          Đường dẫn tài liệu / Đơn thư đính kèm (nếu có)
-        </label>
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Ví dụ: https://example.com/tai-lieu.pdf"
+        <FileUpload
           value={attachmentUrl}
-          onChange={(e) => setAttachmentUrl(e.target.value)}
+          onChange={setAttachmentUrl}
+          label="Tài liệu / Đơn thư đính kèm (nếu có)"
+          placeholder="Tải lên tệp đính kèm hoặc nhập URL"
         />
       </div>
 
@@ -387,8 +339,11 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
               Thẩm quyền xử lý
             </label>
             <select value={authority} onChange={(e) => setAuthority(e.target.value)} className="form-control">
-              <option value="UBND phường">UBND phường</option>
-              <option value="Các Sở, ban ngành Thành phố">Các Sở, ban ngành Thành phố</option>
+              {AUTHORITIES.map((auth) => (
+                <option key={auth} value={auth}>
+                  {auth}
+                </option>
+              ))}
             </select>
           </div>
 

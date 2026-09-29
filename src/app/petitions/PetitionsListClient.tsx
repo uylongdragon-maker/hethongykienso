@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
+import FileUpload from "@/components/FileUpload";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 
@@ -52,6 +53,38 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const isSyncingScroll = useRef(false);
+
+  // Đồng bộ thanh cuộn ngang trên và dưới
+  const handleTopScroll = () => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (tableContainerRef.current && topScrollRef.current) {
+      tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  };
+
+  const handleTableScroll = () => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (topScrollRef.current && tableContainerRef.current) {
+      topScrollRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  };
+
+  const scrollTable = (offset: number) => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
+  };
 
   // Đánh giá quá hạn
   const isOverdue = (pet: SerializedPetition) => {
@@ -397,24 +430,26 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const handleExportCSV = () => {
-    let csv = "STT,Mã vụ việc,Nguồn tiếp nhận,Thông tin người gửi - Họ tên,Thông tin người gửi - Địa chỉ liên hệ,Thông tin người gửi - Số điện thoại,Lĩnh vực,Địa chỉ nơi phản ánh (định vị tọa độ số GPS),Nội dung kiến nghị,Đơn vị xử lý trực tiếp thuộc cấp phường,Thẩm quyền xử lý - Phường,Thẩm quyền xử lý - Các Sở ban ngành Thành phố,Ngày tiếp nhận,Thời hạn giải quyết theo thẩm quyền,Thời hạn báo cáo tổng hợp kết quả giải quyết,Thời gian gia hạn (nếu có),Trạng thái xử lý,Văn bản trả lời (Link),Nội dung rà soát trả lời kiến nghị - Hoàn thành,Nội dung rà soát trả lời kiến nghị - Chưa giải quyết,Nội dung rà soát trả lời kiến nghị - Mới giải quyết 1 phần,Ghi chú\n";
+    // Chỉ thị sep=,\r\n giúp Microsoft Excel trên Windows tự động tách cột theo dấu phẩy dù cài đặt ngôn ngữ nào
+    let csv = "STT,Mã vụ việc,Nguồn tiếp nhận,Thông tin người gửi - Họ tên,Thông tin người gửi - Địa chỉ liên hệ,Thông tin người gửi - Số điện thoại,Lĩnh vực,Địa chỉ nơi phản ánh (định vị tọa độ số GPS),Nội dung kiến nghị,Đơn vị xử lý trực tiếp thuộc cấp phường,Thẩm quyền xử lý - Phường,Thẩm quyền xử lý - Các Sở ban ngành Thành phố,Ngày tiếp nhận,Thời hạn giải quyết theo thẩm quyền,Thời hạn báo cáo tổng hợp kết quả giải quyết,Thời gian gia hạn (nếu có),Trạng thái xử lý,Văn bản trả lời (Link),Nội dung rà soát trả lời kiến nghị - Hoàn thành,Nội dung rà soát trả lời kiến nghị - Chưa giải quyết,Nội dung rà soát trả lời kiến nghị - Mới giải quyết 1 phần,Ghi chú\r\n";
     
+    // Hàm bọc và chuẩn hóa dữ liệu ô tránh bị vỡ dòng trong Excel
+    const cleanCell = (text: any) => {
+      if (text === null || text === undefined) return '""';
+      const str = String(text).replace(/\r?\n|\r/g, " ").replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
     filteredPetitions.forEach((pet, index) => {
       const phone = pet.senderPhone || "";
       const extended = pet.extendedUntil ? formatDate(pet.extendedUntil) : "";
-      
-      const categoryDisplay = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
-
+      const categoryDisplay = pet.category || "";
       const authPhuong = pet.authority === "UBND phường" ? "X" : "";
       const authSo = pet.authority !== "UBND phường" ? "X" : "";
 
       let replyLinkDisplay = "";
       if (pet.replyDocLink) {
-        if (pet.replyDocNumber && pet.replyDocNumber.length > 15) {
-          replyLinkDisplay = `[Link PDF] (${pet.replyDocLink})`;
-        } else {
-          replyLinkDisplay = `[${pet.replyDocNumber || "Văn bản"}] (${pet.replyDocLink})`;
-        }
+        replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} (${pet.replyDocLink})` : pet.replyDocLink;
       } else {
         replyLinkDisplay = pet.replyDocNumber || "";
       }
@@ -423,22 +458,20 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
       let reviewChuaGiaiQuyet = "";
       let reviewMotPhan = "";
 
-      if (pet.replyDocNumber && pet.replyDocNumber.length > 15) {
-        if (pet.reviewStatus === "Hoàn thành") {
-          reviewHoanThanh = pet.replyDocNumber;
-        } else if (pet.reviewStatus === "Chưa giải quyết") {
-          reviewChuaGiaiQuyet = pet.replyDocNumber;
-        } else if (pet.reviewStatus === "Mới giải quyết 1 phần") {
-          reviewMotPhan = pet.replyDocNumber;
-        }
+      if (pet.reviewStatus === "Hoàn thành") {
+        reviewHoanThanh = pet.replyDocNumber || "Hoàn thành";
+      } else if (pet.reviewStatus === "Chưa giải quyết") {
+        reviewChuaGiaiQuyet = pet.replyDocNumber || "Chưa giải quyết";
+      } else if (pet.reviewStatus === "Mới giải quyết 1 phần") {
+        reviewMotPhan = pet.replyDocNumber || "Mới giải quyết 1 phần";
       }
 
       const notes = pet.notes || "";
 
-      csv += `${index + 1},${pet.petitionCode},"${pet.source}","${pet.senderName}","${pet.senderAddress}","${phone}","${categoryDisplay}","${pet.location}","${pet.content.replace(/"/g, '""')}","${pet.department}","${authPhuong}","${authSo}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","Ngày tổ chức kỳ họp trừ 30 ngày","${extended}","${pet.status}","${replyLinkDisplay.replace(/"/g, '""')}","${reviewHoanThanh.replace(/"/g, '""')}","${reviewChuaGiaiQuyet.replace(/"/g, '""')}","${reviewMotPhan.replace(/"/g, '""')}","${notes.replace(/"/g, '""')}"\n`;
+      csv += `${index + 1},${cleanCell(pet.petitionCode)},${cleanCell(pet.source)},${cleanCell(pet.senderName)},${cleanCell(pet.senderAddress)},${cleanCell(phone)},${cleanCell(categoryDisplay)},${cleanCell(pet.location)},${cleanCell(pet.content)},${cleanCell(pet.department)},${cleanCell(authPhuong)},${cleanCell(authSo)},${cleanCell(formatDate(pet.receivedDate))},${cleanCell(formatDate(pet.deadline))},${cleanCell("Ngày tổ chức kỳ họp trừ 30 ngày")},${cleanCell(extended)},${cleanCell(pet.status)},${cleanCell(replyLinkDisplay)},${cleanCell(reviewHoanThanh)},${cleanCell(reviewChuaGiaiQuyet)},${cleanCell(reviewMotPhan)},${cleanCell(notes)}\r\n`;
     });
 
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFFsep=,\r\n" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -633,8 +666,79 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
           </div>
         </div>
 
+        {/* Thanh hỗ trợ cuộn ngang tiện lợi */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0.55rem 0.85rem",
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            marginBottom: "0.5rem",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.82rem", color: "#334155", fontWeight: 600 }}>
+            <span style={{ fontSize: "1rem" }}>↔️</span>
+            <span>Bảng sổ theo dõi gồm 23 cột. Bạn có thể kéo thanh cuộn bên dưới hoặc dùng 2 nút điều hướng để xem hết nội dung sang phải:</span>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={() => scrollTable(-450)}
+              className="btn-neon-blue"
+              style={{ padding: "0.3rem 0.75rem", fontSize: "0.76rem" }}
+              title="Cuộn sang trái"
+            >
+              ◀ Cuộn sang trái
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTable(450)}
+              className="btn-neon-blue"
+              style={{ padding: "0.3rem 0.75rem", fontSize: "0.76rem" }}
+              title="Cuộn sang phải"
+            >
+              Cuộn sang phải ▶
+            </button>
+          </div>
+        </div>
+
+        {/* Thanh cuộn ngang phụ ở đỉnh bảng (Top Scrollbar) */}
+        <div
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          style={{
+            overflowX: "auto",
+            overflowY: "hidden",
+            width: "100%",
+            height: "14px",
+            backgroundColor: "#f1f5f9",
+            borderRadius: "6px",
+            marginBottom: "0.5rem",
+          }}
+        >
+          <div style={{ width: "3500px", height: "1px" }} />
+        </div>
+
         {/* Bảng chi tiết */}
-        <div className="table-container" style={{ overflowX: "auto", width: "100%" }}>
+        <div
+          ref={tableContainerRef}
+          onScroll={handleTableScroll}
+          className="table-container"
+          style={{
+            overflowX: "auto",
+            overflowY: "auto",
+            width: "100%",
+            maxHeight: "72vh",
+            border: "1px solid var(--border-color)",
+            borderRadius: "12px",
+          }}
+        >
           <table className="data-table ledger-table">
             <thead>
               <tr>
@@ -680,8 +784,8 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                 filteredPetitions.map((pet, index) => {
                   const overdue = isOverdue(pet);
 
-                  // Định dạng hiển thị lĩnh vực ngắn gọn
-                  const categoryDisplay = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
+                  // Hiển thị tên lĩnh vực chính xác và đầy đủ
+                  const categoryDisplay = pet.category || "-";
 
                   // Tách nội dung rà soát theo trạng thái
                   const isLongReply = pet.replyDocNumber && pet.replyDocNumber.length > 15;
@@ -741,19 +845,28 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                         {getStatusBadge(pet)}
                       </td>
                       <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.replyDocNumber ? (
-                          pet.replyDocLink ? (
-                            <a
-                              href={pet.replyDocLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: "var(--primary)", fontWeight: "500", textDecoration: "underline" }}
-                            >
-                              {pet.replyDocNumber.length > 15 ? "[Link PDF]" : pet.replyDocNumber}
-                            </a>
-                          ) : (
-                            <span style={{ fontWeight: "500" }}>{pet.replyDocNumber}</span>
-                          )
+                        {pet.replyDocLink ? (
+                          <a
+                            href={pet.replyDocLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.35rem",
+                              color: "#2563eb",
+                              fontWeight: 700,
+                              textDecoration: "underline",
+                              backgroundColor: "rgba(37, 99, 235, 0.08)",
+                              padding: "0.25rem 0.5rem",
+                              borderRadius: "6px",
+                            }}
+                            title="Bấm để mở và xem nội dung tệp đính kèm"
+                          >
+                            📄 {pet.replyDocNumber ? (pet.replyDocNumber.length > 25 ? pet.replyDocNumber.slice(0, 22) + "..." : pet.replyDocNumber) : "Xem tệp"} ↗
+                          </a>
+                        ) : pet.replyDocNumber ? (
+                          <span style={{ fontWeight: "500" }}>{pet.replyDocNumber}</span>
                         ) : (
                           "-"
                         )}
@@ -860,13 +973,11 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Link văn bản trả lời (Đường dẫn PDF, nếu có)</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Ví dụ: https://example.com/reply.pdf"
+                <FileUpload
                   value={quickReplyDocLink}
-                  onChange={(e) => setQuickReplyDocLink(e.target.value)}
+                  onChange={setQuickReplyDocLink}
+                  label="Văn bản kết quả trả lời (Tải tệp PDF, Word, Ảnh...)"
+                  placeholder="Tải lên tệp văn bản hoặc dán URL"
                 />
               </div>
               <div className="form-group">
