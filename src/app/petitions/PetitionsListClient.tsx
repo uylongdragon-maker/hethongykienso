@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
 import FileUpload from "@/components/FileUpload";
@@ -468,10 +468,10 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
 
       const notes = pet.notes || "";
 
-      csv += `${index + 1},${cleanCell(pet.petitionCode)},${cleanCell(pet.source)},${cleanCell(pet.senderName)},${cleanCell(pet.senderAddress)},${cleanCell(phone)},${cleanCell(categoryDisplay)},${cleanCell(pet.location)},${cleanCell(pet.content)},${cleanCell(pet.department)},${cleanCell(authPhuong)},${cleanCell(authSo)},${cleanCell(formatDate(pet.receivedDate))},${cleanCell(formatDate(pet.deadline))},${cleanCell("Ngày tổ chức kỳ họp trừ 30 ngày")},${cleanCell(extended)},${cleanCell(pet.status)},${cleanCell(replyLinkDisplay)},${cleanCell(reviewHoanThanh)},${cleanCell(reviewChuaGiaiQuyet)},${cleanCell(reviewMotPhan)},${cleanCell(notes)}\r\n`;
+      csv += `${cleanCell(index + 1)},${cleanCell(pet.petitionCode)},${cleanCell(pet.source)},${cleanCell(pet.senderName)},${cleanCell(pet.senderAddress)},${cleanCell(phone)},${cleanCell(categoryDisplay)},${cleanCell(pet.location)},${cleanCell(pet.content)},${cleanCell(pet.department)},${cleanCell(authPhuong)},${cleanCell(authSo)},${cleanCell(formatDate(pet.receivedDate))},${cleanCell(formatDate(pet.deadline))},${cleanCell("Ngày tổ chức kỳ họp trừ 30 ngày")},${cleanCell(extended)},${cleanCell(pet.status)},${cleanCell(replyLinkDisplay)},${cleanCell(reviewHoanThanh)},${cleanCell(reviewChuaGiaiQuyet)},${cleanCell(reviewMotPhan)},${cleanCell(notes)}\r\n`;
     });
 
-    const blob = new Blob(["\uFEFFsep=,\r\n" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -513,7 +513,40 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   const [quickReplyDocNumber, setQuickReplyDocNumber] = useState("");
   const [quickReplyDocLink, setQuickReplyDocLink] = useState("");
   const [quickLoading, setQuickLoading] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [quickError, setQuickError] = useState<string | null>(null);
+
+  // Lấy role của user hiện tại
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUserRole(data.user.role);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleDeletePetition = async (petId: string, petCode: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn XÓA vụ việc "${petCode}"? Hành động này không thể hoàn tác!`)) return;
+    setDeletingId(petId);
+    try {
+      const res = await fetch(`/api/petitions/${petId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || "Không thể xóa vụ việc.");
+      } else {
+        alert("Đã xóa vụ việc thành công!");
+        router.refresh();
+      }
+    } catch {
+      alert("Lỗi kết nối khi xóa vụ việc.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const openQuickUpdate = (pet: SerializedPetition) => {
     setUpdatingId(pet.id);
@@ -878,7 +911,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                         {pet.notes || "-"}
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center" }}>
+                        <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center", flexWrap: "wrap" }}>
                           <button
                             onClick={() => openQuickUpdate(pet)}
                             className="btn-neon-blue"
@@ -891,6 +924,30 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                           <a href={`/petitions/${pet.id}`} className="btn-neon-blue" style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem" }}>
                             Chi tiết
                           </a>
+                          {currentUserRole === "ADMIN" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePetition(pet.id, pet.petitionCode);
+                              }}
+                              className="btn-neon-blue"
+                              disabled={deletingId === pet.id}
+                              style={{
+                                padding: "0.35rem 0.6rem",
+                                fontSize: "0.7rem",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                backgroundColor: "rgba(225, 29, 72, 0.08)",
+                                color: "var(--danger)",
+                                borderColor: "rgba(225, 29, 72, 0.3)",
+                              }}
+                              title="Xóa vụ việc (Chỉ Admin)"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              {deletingId === pet.id ? "Đang xóa..." : "Xóa"}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

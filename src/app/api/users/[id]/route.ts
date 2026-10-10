@@ -18,7 +18,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { fullName, cccd, role, department, password, email, phone } = body;
+    const { fullName, cccd, role, department, password, email, phone, position } = body;
 
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) {
@@ -34,6 +34,7 @@ export async function PUT(
       department: department !== undefined ? department : existing.department,
       email: email !== undefined ? email : existing.email,
       phone: phone !== undefined ? phone : existing.phone,
+      position: position !== undefined ? position : existing.position,
     };
 
     if (cccd && cccd.trim() !== existing.cccd) {
@@ -63,6 +64,7 @@ export async function PUT(
         cccd: true,
         role: true,
         department: true,
+        position: true,
         updatedAt: true,
       },
     });

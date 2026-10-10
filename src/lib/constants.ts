@@ -65,6 +65,11 @@ export const AUTHORITIES = [
   "UBND Quận",
 ];
 
+export const RESPONSIBLE_COMMITTEES = [
+  "Ban Kinh tế - Ngân sách",
+  "Ban Văn hóa - Xã hội",
+];
+
 export const STATUSES = [
   "Đang xử lý",
   "Đã xong",

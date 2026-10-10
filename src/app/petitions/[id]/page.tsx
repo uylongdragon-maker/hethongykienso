@@ -7,6 +7,7 @@ import {
   SOURCES,
   DEPARTMENTS,
   AUTHORITIES,
+  RESPONSIBLE_COMMITTEES,
   STATUSES,
   REVIEW_STATUSES,
 } from "@/lib/constants";
@@ -58,6 +59,9 @@ export default async function PetitionDetailPage({ params }: PageProps) {
   const allAuthorities = AUTHORITIES.includes(currentAuthority)
     ? AUTHORITIES
     : [currentAuthority, ...AUTHORITIES];
+
+  const committeeMatch = petition.notes?.match(/\[Ban phụ trách:\s*([^\]]+)\]/);
+  const currentCommittee = committeeMatch ? committeeMatch[1] : RESPONSIBLE_COMMITTEES[0];
 
   return (
     <div>
@@ -181,6 +185,17 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   {allAuthorities.map((auth) => (
                     <option key={auth} value={auth}>
                       {auth}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Ban phụ trách (HĐND phường)</label>
+                <select name="responsibleCommittee" defaultValue={currentCommittee} className="form-control" required>
+                  {RESPONSIBLE_COMMITTEES.map((comm) => (
+                    <option key={comm} value={comm}>
+                      {comm}
                     </option>
                   ))}
                 </select>

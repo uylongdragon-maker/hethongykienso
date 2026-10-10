@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
 import FileUpload from "@/components/FileUpload";
-import { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES } from "@/lib/constants";
+import { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES, RESPONSIBLE_COMMITTEES } from "@/lib/constants";
 
-export { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES };
+export { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES, RESPONSIBLE_COMMITTEES };
 
 interface PetitionFormProps {
   onSuccess: () => void;
@@ -28,6 +28,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [authority, setAuthority] = useState("UBND phường");
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [responsibleCommittee, setResponsibleCommittee] = useState(RESPONSIBLE_COMMITTEES[0]);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split("T")[0]);
   const [deadline, setDeadline] = useState(() => {
     const received = new Date();
@@ -98,6 +99,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
           receivedDate,
           deadline,
           quarter,
+          responsibleCommittee,
         }),
       });
 
@@ -355,6 +357,19 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
               {DEPARTMENTS.map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ marginTop: "1rem" }}>
+            <label className="form-label" style={{ fontWeight: "700", fontSize: "0.85rem", marginBottom: "0.35rem", display: "block" }}>
+              Ban phụ trách (HĐND phường)
+            </label>
+            <select value={responsibleCommittee} onChange={(e) => setResponsibleCommittee(e.target.value)} className="form-control">
+              {RESPONSIBLE_COMMITTEES.map((comm) => (
+                <option key={comm} value={comm}>
+                  {comm}
                 </option>
               ))}
             </select>

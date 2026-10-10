@@ -27,6 +27,7 @@ export async function updatePetitionResolution(id: string, formData: FormData) {
   const extendedUntilStr = (formData.get("extendedUntil") as string) || null;
   const reviewStatus = (formData.get("reviewStatus") as string) || "Chưa giải quyết";
   const notes = (formData.get("notes") as string) || null;
+  const responsibleCommittee = (formData.get("responsibleCommittee") as string) || null;
 
   if (!senderName || !senderAddress || !source || !category || !department || !authority || !location || !content || !receivedDateStr || !deadlineStr || !status) {
     throw new Error("Vui lòng điền đầy đủ các thông tin bắt buộc.");
@@ -43,6 +44,15 @@ export async function updatePetitionResolution(id: string, formData: FormData) {
 
   if (!existing) {
     throw new Error("Vụ việc kiến nghị không tồn tại trên hệ thống.");
+  }
+
+  let finalNotes = notes || "";
+  if (responsibleCommittee) {
+    if (finalNotes.includes("[Ban phụ trách:")) {
+      finalNotes = finalNotes.replace(/\[Ban phụ trách:\s*[^\]]+\]/, `[Ban phụ trách: ${responsibleCommittee}]`);
+    } else {
+      finalNotes = `[Ban phụ trách: ${responsibleCommittee}] ${finalNotes}`.trim();
+    }
   }
 
   await prisma.petition.update({
@@ -66,7 +76,7 @@ export async function updatePetitionResolution(id: string, formData: FormData) {
       replyDocLink,
       extendedUntil: extendedUntilStr ? new Date(extendedUntilStr) : null,
       reviewStatus,
-      notes,
+      notes: finalNotes || null,
     },
   });
 

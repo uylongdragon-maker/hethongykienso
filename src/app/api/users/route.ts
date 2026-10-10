@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { username, password, fullName, cccd, role, department, email, phone } = body;
+    const { username, password, fullName, cccd, role, department, position, email, phone } = body;
 
     if (!username || !password || !fullName || !cccd || !role) {
       return NextResponse.json(
@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
         cccd: cccd.trim(),
         role: role.trim(),
         department: department ? department.trim() : "Phòng Xử lý & Tham mưu",
+        position: position ? position.trim() : "Chuyên viên thống kê báo cáo",
         email: email ? email.trim() : null,
         phone: phone ? phone.trim() : null,
       },
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest) {
         cccd: true,
         role: true,
         department: true,
+        position: true,
         createdAt: true,
       },
     });

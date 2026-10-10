@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
       receivedDate,
       deadline, // Hạn giải quyết tự chọn
       quarter,  // Khu phố tự chọn
+      responsibleCommittee, // Ban phụ trách HĐND
     } = body;
 
     // Kiểm tra dữ liệu bắt buộc
@@ -219,7 +220,7 @@ export async function POST(req: NextRequest) {
         replyDocDate: null,
         replyDocLink: null,
         reviewStatus: "Chưa giải quyết",
-        notes: null,
+        notes: responsibleCommittee ? `[Ban phụ trách: ${responsibleCommittee}]` : null,
       },
     });
 
