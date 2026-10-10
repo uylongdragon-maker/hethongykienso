@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { updatePetitionResolution } from "./actions";
 import FileUpload from "@/components/FileUpload";
+import { getSession } from "@/lib/auth";
 import {
   CATEGORIES,
   SOURCES,
@@ -19,6 +20,8 @@ interface PageProps {
 }
 
 export default async function PetitionDetailPage({ params }: PageProps) {
+  const session = await getSession();
+  const isReadOnly = session?.role === "CAN_BO";
   const { id } = await params;
 
   // Lấy chi tiết vụ việc
@@ -85,20 +88,22 @@ export default async function PetitionDetailPage({ params }: PageProps) {
       <div className="page-header" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 className="page-title">
-            Cập nhật kết quả giải quyết {petition.petitionCode}
+            {isReadOnly ? `Chi tiết hồ sơ vụ việc ${petition.petitionCode}` : `Cập nhật kết quả giải quyết ${petition.petitionCode}`}
           </h1>
           <p className="page-subtitle">
-            Cập nhật văn bản trả lời, tiến độ giải quyết và ý kiến rà soát
+            {isReadOnly
+              ? "Xem thông tin kiến nghị, tiến độ xử lý và văn bản trả lời cử tri (Chế độ xem của Lãnh đạo)"
+              : "Cập nhật văn bản trả lời, tiến độ giải quyết và ý kiến rà soát"}
           </p>
         </div>
       </div>
 
       <form action={updatePetitionWithId}>
         <div className="grid-layout-details">
-          {/* Cột trái: Thông tin tổng quan vụ việc (Editable) */}
+          {/* Cột trái: Thông tin tổng quan vụ việc */}
           <section className="glass-card detail-card" style={{ padding: "2rem" }}>
             <h3 className="detail-section-title" style={{ marginTop: 0 }}>
-              Thông tin chi tiết tiếp nhận (Chỉnh sửa)
+              {isReadOnly ? "Thông tin tiếp nhận kiến nghị" : "Thông tin chi tiết tiếp nhận (Chỉnh sửa)"}
             </h3>
 
             <div style={{ display: "grid", gap: "1.25rem" }}>
@@ -338,12 +343,20 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               </div>
 
               <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-                <a href="/petitions" className="btn-neon-blue" style={{ flexGrow: 1, textAlign: "center" }}>
-                  Hủy bỏ
-                </a>
-                <button type="submit" className="btn-neon-blue" style={{ flexGrow: 2 }}>
-                  Lưu thay đổi
-                </button>
+                {isReadOnly ? (
+                  <a href="/petitions" className="btn-neon-blue" style={{ width: "100%", textAlign: "center" }}>
+                    ← Quay lại danh sách vụ việc
+                  </a>
+                ) : (
+                  <>
+                    <a href="/petitions" className="btn-neon-blue" style={{ flexGrow: 1, textAlign: "center" }}>
+                      Hủy bỏ
+                    </a>
+                    <button type="submit" className="btn-neon-blue" style={{ flexGrow: 2 }}>
+                      Lưu thay đổi
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </section>

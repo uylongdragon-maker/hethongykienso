@@ -178,7 +178,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       case "CHUYEN_VIEN":
         return "Chuyên viên xử lý hồ sơ";
       case "CAN_BO":
-        return "Cán bộ Phường";
+        return "Lãnh đạo phường (Chỉ xem)";
       case "NGUOI_DAN":
         return "Cử tri công dân";
       default:

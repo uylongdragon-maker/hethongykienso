@@ -3,8 +3,16 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 
 export async function updatePetitionResolution(id: string, formData: FormData) {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("Vui lòng đăng nhập để thực hiện.");
+  }
+  if (session.role === "CAN_BO") {
+    throw new Error("Tài khoản Lãnh đạo phường có quyền CHỈ XEM, không được phép chỉnh sửa dữ liệu.");
+  }
   // Thông tin cơ bản chỉnh sửa
   const senderName = formData.get("senderName") as string;
   const senderPhone = (formData.get("senderPhone") as string) || null;

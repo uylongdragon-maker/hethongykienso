@@ -430,16 +430,19 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const handleExportCSV = () => {
-    // Chỉ thị sep=,\r\n giúp Microsoft Excel trên Windows tự động tách cột theo dấu phẩy dù cài đặt ngôn ngữ nào
-    let csv = "STT,Mã vụ việc,Nguồn tiếp nhận,Thông tin người gửi - Họ tên,Thông tin người gửi - Địa chỉ liên hệ,Thông tin người gửi - Số điện thoại,Lĩnh vực,Địa chỉ nơi phản ánh (định vị tọa độ số GPS),Nội dung kiến nghị,Đơn vị xử lý trực tiếp thuộc cấp phường,Thẩm quyền xử lý - Phường,Thẩm quyền xử lý - Các Sở ban ngành Thành phố,Ngày tiếp nhận,Thời hạn giải quyết theo thẩm quyền,Thời hạn báo cáo tổng hợp kết quả giải quyết,Thời gian gia hạn (nếu có),Trạng thái xử lý,Văn bản trả lời (Link),Nội dung rà soát trả lời kiến nghị - Hoàn thành,Nội dung rà soát trả lời kiến nghị - Chưa giải quyết,Nội dung rà soát trả lời kiến nghị - Mới giải quyết 1 phần,Ghi chú\r\n";
-    
-    // Hàm bọc và chuẩn hóa dữ liệu ô tránh bị vỡ dòng trong Excel
-    const cleanCell = (text: any) => {
-      if (text === null || text === undefined) return '""';
-      const str = String(text).replace(/\r?\n|\r/g, " ").replace(/"/g, '""');
-      return `"${str}"`;
+    // Xuất file định dạng Excel XML (.xls) chính thống, Microsoft Excel mọi phiên bản (Windows/Mac)
+    // mở trực tiếp 100% không bao giờ bị lỗi font tiếng Việt, tự động nhận đúng cột và kẻ bảng đẹp
+    const escapeXml = (unsafe: any) => {
+      if (unsafe === null || unsafe === undefined) return "";
+      return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
     };
 
+    let xmlRows = "";
     filteredPetitions.forEach((pet, index) => {
       const phone = pet.senderPhone || "";
       const extended = pet.extendedUntil ? formatDate(pet.extendedUntil) : "";
@@ -468,17 +471,133 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
 
       const notes = pet.notes || "";
 
-      csv += `${cleanCell(index + 1)},${cleanCell(pet.petitionCode)},${cleanCell(pet.source)},${cleanCell(pet.senderName)},${cleanCell(pet.senderAddress)},${cleanCell(phone)},${cleanCell(categoryDisplay)},${cleanCell(pet.location)},${cleanCell(pet.content)},${cleanCell(pet.department)},${cleanCell(authPhuong)},${cleanCell(authSo)},${cleanCell(formatDate(pet.receivedDate))},${cleanCell(formatDate(pet.deadline))},${cleanCell("Ngày tổ chức kỳ họp trừ 30 ngày")},${cleanCell(extended)},${cleanCell(pet.status)},${cleanCell(replyLinkDisplay)},${cleanCell(reviewHoanThanh)},${cleanCell(reviewChuaGiaiQuyet)},${cleanCell(reviewMotPhan)},${cleanCell(notes)}\r\n`;
+      xmlRows += `
+      <Row>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="Number">${index + 1}</Data></Cell>
+        <Cell ss:StyleID="CellBold"><Data ss:Type="String">${escapeXml(pet.petitionCode)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.source)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.senderName)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.senderAddress)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(phone)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(categoryDisplay)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.location)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.content)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.department)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(authPhuong)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(authSo)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDate(pet.receivedDate))}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDate(pet.deadline))}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">Ngày tổ chức kỳ họp trừ 30 ngày</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(extended)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(pet.status)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(replyLinkDisplay)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(reviewHoanThanh)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(reviewChuaGiaiQuyet)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(reviewMotPhan)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(notes)}</Data></Cell>
+      </Row>`;
     });
 
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const excelTemplate = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
+   </Borders>
+   <Font ss:FontName="Times New Roman" ss:Size="11" ss:Color="#111827"/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4B5563"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4B5563"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4B5563"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4B5563"/>
+   </Borders>
+   <Font ss:FontName="Times New Roman" ss:Size="11" ss:Bold="1" ss:Color="#111827"/>
+   <Interior ss:Color="#E5E7EB" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="CellCenter">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Times New Roman" ss:Size="11" ss:Color="#111827"/>
+  </Style>
+  <Style ss:ID="CellBold">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Times New Roman" ss:Size="11" ss:Bold="1" ss:Color="#1E40AF"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="So_Theo_Doi_Kien_Nghi">
+  <Table ss:DefaultRowHeight="24">
+   <Column ss:Width="40"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="130"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="180"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="180"/>
+   <Column ss:Width="260"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="60"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="140"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="140"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="160"/>
+   <Row ss:Height="32">
+    <Cell ss:StyleID="Header"><Data ss:Type="String">STT</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Mã vụ việc</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Nguồn tiếp nhận</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Họ tên người gửi</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Địa chỉ người gửi</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Số điện thoại</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Lĩnh vực</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Địa chỉ phản ánh (GPS)</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Nội dung kiến nghị</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Đơn vị xử lý cấp phường</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Thẩm quyền: Phường</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Thẩm quyền: Sở ngành TP</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Ngày tiếp nhận</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Hạn giải quyết</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Thời hạn báo cáo tổng hợp</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Gia hạn (nếu có)</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Trạng thái xử lý</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Văn bản trả lời (Link)</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: Hoàn thành</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: Chưa giải quyết</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: 1 phần</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Ghi chú</Data></Cell>
+   </Row>
+   ${xmlRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `danh_sach_kien_nghi_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `danh_sach_kien_nghi_${new Date().toISOString().split('T')[0]}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportOfficialLetter = () => {
@@ -593,13 +712,15 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
           <p className="page-subtitle">Sổ chi tiết theo dõi tiến độ giải quyết kiến nghị cử tri</p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <button onClick={() => setIsCreateOpen(true)} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Tiếp nhận kiến nghị
-          </button>
-          <button onClick={handleExportCSV} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+          {currentUserRole !== "CAN_BO" && (
+            <button onClick={() => setIsCreateOpen(true)} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Tiếp nhận kiến nghị
+            </button>
+          )}
+          <button onClick={handleExportCSV} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }} title="Xuất file Excel chuẩn tiếng Việt">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            Xuất CSV
+            Xuất Excel
           </button>
           <button onClick={handleExportOfficialLetter} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderColor: "var(--info)", color: "var(--info)" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -912,15 +1033,17 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center", flexWrap: "wrap" }}>
-                          <button
-                            onClick={() => openQuickUpdate(pet)}
-                            className="btn-neon-blue"
-                            style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem", display: "inline-flex", alignItems: "center", gap: "0.25rem", backgroundColor: "var(--info-bg)", color: "var(--info)", borderColor: "var(--info)" }}
-                            title="Cập nhật tiến độ nhanh"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                            Tiến độ
-                          </button>
+                          {currentUserRole !== "CAN_BO" && (
+                            <button
+                              onClick={() => openQuickUpdate(pet)}
+                              className="btn-neon-blue"
+                              style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem", display: "inline-flex", alignItems: "center", gap: "0.25rem", backgroundColor: "var(--info-bg)", color: "var(--info)", borderColor: "var(--info)" }}
+                              title="Cập nhật tiến độ nhanh"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                              Tiến độ
+                            </button>
+                          )}
                           <a href={`/petitions/${pet.id}`} className="btn-neon-blue" style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem" }}>
                             Chi tiết
                           </a>

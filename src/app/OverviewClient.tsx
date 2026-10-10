@@ -318,6 +318,10 @@ export default function OverviewClient({ initialPetitions }: OverviewClientProps
                   Quản Lý Tài Khoản
                 </a>
               </>
+            ) : user.role === "CAN_BO" ? (
+              <a href="/petitions" className="btn-neon-blue" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }}>
+                Xem Sổ Theo Dõi & Giám Sát
+              </a>
             ) : (
               <a href="/petitions" className="btn-neon-blue" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }}>
                 Lập Dự Thảo & Trình Admin

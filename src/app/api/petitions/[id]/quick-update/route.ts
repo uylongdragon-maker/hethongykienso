@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 // PATCH: Cập nhật nhanh tiến độ & thông tin vụ việc từ màn hình danh sách
 export async function PATCH(
@@ -7,6 +8,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Vui lòng đăng nhập." }, { status: 401 });
+    }
+    if (session.role === "CAN_BO") {
+      return NextResponse.json(
+        { success: false, error: "Tài khoản Lãnh đạo phường chỉ có quyền XEM, không được phép chỉnh sửa." },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const { status, notes, extendedUntil, replyDocNumber, replyDocLink } = body;

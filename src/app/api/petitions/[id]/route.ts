@@ -16,6 +16,13 @@ export async function PUT(
       );
     }
 
+    if (session.role === "CAN_BO") {
+      return NextResponse.json(
+        { success: false, error: "Tài khoản Lãnh đạo phường có quyền CHỈ XEM, không được phép chỉnh sửa dữ liệu." },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const {

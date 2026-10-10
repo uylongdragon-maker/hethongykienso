@@ -282,7 +282,7 @@ export default function AccountCenterPage() {
       case "CHUYEN_VIEN":
         return <span className="status-badge status-in-progress">Chuyên viên xử lý</span>;
       case "CAN_BO":
-        return <span className="status-badge status-completed">Cán bộ Phường</span>;
+        return <span className="status-badge status-completed">Lãnh đạo phường (Chỉ xem)</span>;
       default:
         return <span className="status-badge status-completed">{r}</span>;
     }
@@ -984,7 +984,7 @@ export default function AccountCenterPage() {
                   type="text"
                   value={adminPosition}
                   onChange={(e) => setAdminPosition(e.target.value)}
-                  placeholder="Chuyên viên thống kê báo cáo"
+                  placeholder="Ví dụ: Bí thư Đảng ủy - Chủ tịch HĐND, Phó Chủ tịch HĐND..."
                   style={{ width: "100%", padding: "0.7rem 0.85rem", borderRadius: "10px", border: "1px solid #d1d5db", fontSize: "0.9rem" }}
                 />
               </div>
@@ -1010,7 +1010,7 @@ export default function AccountCenterPage() {
                   >
                     <option value="CHUYEN_VIEN">Chuyên viên xử lý</option>
                     <option value="ADMIN">Quản trị viên (Admin)</option>
-                    <option value="CAN_BO">Cán bộ Phường</option>
+                    <option value="CAN_BO">Lãnh đạo phường (Chỉ xem)</option>
                   </select>
                 </div>
 

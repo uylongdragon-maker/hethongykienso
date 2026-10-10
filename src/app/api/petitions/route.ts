@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 // Hàm chuẩn hóa địa chỉ về chuẩn Phường Bình Đông, TP. Hồ Chí Minh
 function sanitizeAddress(address: string): string {
@@ -108,6 +109,14 @@ export async function GET() {
 // 2. POST: Tạo mới một kiến nghị vụ việc
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (session && session.role === "CAN_BO") {
+      return NextResponse.json(
+        { success: false, error: "Tài khoản Lãnh đạo phường có quyền CHỈ XEM, không được phép tạo mới dữ liệu." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const {
       type, // "Kiến nghị", "Giám sát", "Khảo sát"
