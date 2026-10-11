@@ -42,21 +42,18 @@ export const CATEGORIES = [
 ];
 
 export const DEPARTMENTS = [
-  "Phòng KT-HT và Đô thị",
-  "Phòng Kinh tế, Hạ tầng và Đô thị phường",
-  "Phòng Văn hóa - Xã hội",
-  "Phòng Địa chính - Nhà đất",
-  "Tư pháp - Hộ tịch",
-  "Tổ Trật tự Đô thị",
-  "Công an Phường Bình Đông",
-  "Quân sự phường",
-  "Trung tâm phục vụ hành chính công phường",
   "Văn phòng HĐND & UBND phường",
-  "Trung tâm cung ứng dịch vụ công phường",
+  "Phòng Văn hóa - Xã hội phường",
+  "Phòng Hạ tầng phường",
+  "Phòng Tài chính - Kế hoạch phường",
+  "Trung tâm Phục vụ hành chính công phường",
+  "Trung tâm Cung ứng dịch vụ công phường",
+  "Công an phường",
+  "Quân sự phường",
+  "UB MTTQ VN phường",
   "Ban Quản lý dự án đầu tư xây dựng phường",
-  "UBMTTQVN phường",
-  "Sở Giao thông Vận tải",
-  "Sở Xây dựng",
+  "Đảng ủy phường",
+  "Sở, Ngành Thành phố",
 ];
 
 export const AUTHORITIES = [

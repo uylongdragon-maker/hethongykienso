@@ -351,7 +351,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: "700", fontSize: "0.85rem", marginBottom: "0.35rem", display: "block" }}>
-              Đơn vị xử lý trực tiếp cấp phường (9 Đơn vị) <span style={{ color: "#e11d48" }}>*</span>
+              Đơn vị xử lý trực tiếp <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <select value={department} onChange={(e) => setDepartment(e.target.value)} className="form-control">
               {DEPARTMENTS.map((dept) => (
