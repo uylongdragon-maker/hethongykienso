@@ -59,7 +59,7 @@ export const DEPARTMENTS = [
 export const AUTHORITIES = [
   "UBND phường",
   "Các Sở, ban ngành Thành phố",
-  "UBND Quận",
+  "UBND Thành phố",
 ];
 
 export const RESPONSIBLE_COMMITTEES = [
