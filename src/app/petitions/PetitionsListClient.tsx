@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
 import FileUpload from "@/components/FileUpload";
+import { openDocumentViewer } from "@/lib/fileViewer";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 
@@ -452,7 +453,11 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
 
       let replyLinkDisplay = "";
       if (pet.replyDocLink) {
-        replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} (${pet.replyDocLink})` : pet.replyDocLink;
+        if (pet.replyDocLink.startsWith("data:")) {
+          replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} [Tệp đính kèm]` : "[Tệp đính kèm]";
+        } else {
+          replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} (${pet.replyDocLink})` : pet.replyDocLink;
+        }
       } else {
         replyLinkDisplay = pet.replyDocNumber || "";
       }
@@ -1004,6 +1009,12 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                             href={pet.replyDocLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => {
+                              if (pet.replyDocLink?.startsWith("data:")) {
+                                e.preventDefault();
+                                openDocumentViewer(pet.replyDocLink, pet.replyDocNumber || pet.petitionCode);
+                              }
+                            }}
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -1014,6 +1025,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
                               backgroundColor: "rgba(37, 99, 235, 0.08)",
                               padding: "0.25rem 0.5rem",
                               borderRadius: "6px",
+                              cursor: "pointer",
                             }}
                             title="Bấm để mở và xem nội dung tệp đính kèm"
                           >
