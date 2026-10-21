@@ -333,7 +333,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
           </div>
 
           <div class="content-section">
-            Thực hiện chức năng giám sát theo quy định của Luật Tổ chức chính quyền địa phương và căn cứ vào dữ liệu theo dõi trên Hệ thống quản lý kiến nghị cử tri của HĐND phường.
+            Thực hiện chức năng giám sát theo quy định của Luật Tổ chức chính quyền địa phương và căn cứ vào dữ liệu theo dõi trên Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông.
           </div>
 
           <div class="content-section">
@@ -354,7 +354,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
 
           <div class="bullet-list">
             <div class="bullet-item">- Tập trung chỉ đạo các bộ phận chuyên môn rà soát, xác định rõ nguyên nhân, trách nhiệm của cá nhân, đơn vị trong việc chậm trễ đối với nội dung nêu trên.</div>
-            <div class="bullet-item">- Khẩn trương cập nhật tiến độ, kết quả xử lý và đính kèm văn bản trả lời lên Hệ thống quản lý số của HĐND trước ngày ${new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("vi-VN")} để Thường trực HĐND tổng hợp, thông tin đến cử tri.</div>
+            <div class="bullet-item">- Khẩn trương cập nhật tiến độ, kết quả xử lý và đính kèm văn bản trả lời lên Hệ thống trước ngày ${new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("vi-VN")} để Thường trực HĐND phường tổng hợp, thông tin đến cử tri.</div>
             <div class="bullet-item">- Đối với các kiến nghị có vướng mắc khách quan hoặc vượt thẩm quyền, yêu cầu có báo cáo bằng văn bản nêu rõ lộ trình và phương hướng kiến nghị cấp trên để Thường trực HĐND có cơ sở giám sát tiếp theo.</div>
           </div>
 

@@ -252,12 +252,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem", overflow: "hidden" }}>
-              <span className="logo-text" style={{ fontSize: "0.65rem", lineHeight: "1.25", fontWeight: 800, whiteSpace: "nowrap", letterSpacing: "-0.02em" }}>
-                HỆ THỐNG Ý KIẾN SỐ
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem", overflow: "hidden" }} title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông">
+              <span className="logo-text" style={{ fontSize: "0.68rem", lineHeight: "1.25", fontWeight: 800, whiteSpace: "nowrap", letterSpacing: "-0.02em" }}>
+                KIẾN NGHỊ CỬ TRI
               </span>
               <span style={{ fontSize: "0.54rem", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
-                HÀNH CHÍNH SỐ P. BÌNH ĐÔNG
+                HĐND PHƯỜNG BÌNH ĐÔNG
               </span>
             </div>
           </div>
@@ -399,8 +399,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 fontWeight: "800",
                 letterSpacing: "-0.01em",
               }}
+              title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông"
             >
-              Ý KIẾN SỐ <span style={{ color: "#6b7280", fontWeight: 600 }}>• P. BÌNH ĐÔNG</span>
+              KIẾN NGHỊ CỬ TRI <span style={{ color: "#6b7280", fontWeight: 600 }}>• HĐND P. BÌNH ĐÔNG</span>
             </span>
           </div>
 

@@ -11,8 +11,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "HỆ THỐNG TIẾP NHẬN VÀ GIẢI QUYẾT KIẾN NGHỊ HÀNH CHÍNH SÓ PHƯỜNG BÌNH ĐÔNG",
-  description: "Hệ thống tiếp nhận, xử lý và giám sát ý kiến, kiến nghị của cử tri và công dân.",
+  title: "Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông",
+  description: "Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông",
 };
 
 export default function RootLayout({

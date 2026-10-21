@@ -162,19 +162,19 @@ export default function OverviewClient({ initialPetitions }: OverviewClientProps
               fontSize: "0.72rem", fontWeight: 700, color: "#00f0ff", marginBottom: "1.75rem",
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#00f0ff", boxShadow: "0 0 8px #00f0ff" }} />
-              CỔNG DỊCH VỤ CÔNG BÌNH ĐÔNG
+              HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
             </div>
             <h1 className="anim-hero" style={{
-              fontSize: "clamp(2rem,3.8vw,3.4rem)", fontWeight: 800, lineHeight: 1.18,
-              letterSpacing: "-0.03em", maxWidth: 980, marginBottom: "1.5rem",
+              fontSize: "clamp(1.75rem,3.2vw,2.75rem)", fontWeight: 800, lineHeight: 1.25,
+              letterSpacing: "-0.02em", maxWidth: 980, marginBottom: "1.5rem",
             }}>
-              HỆ THỐNG TIẾP NHẬN Ý KIẾN SỐ VÀ GIẢI QUYẾT THỦ TỤC HÀNH CHÍNH PHƯỜNG BÌNH ĐÔNG
+              HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT KIẾN NGHỊ CỬ TRI CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
             </h1>
             <p className="anim-hero" style={{
               fontSize: "1.05rem", color: "rgba(255,255,255,.7)", maxWidth: 720,
               lineHeight: 1.6, marginBottom: "2.5rem",
             }}>
-              Cổng tiếp nhận và tra cứu hồ sơ ý kiến cử tri công khai. Đảm bảo quy trình xử lý minh bạch.
+              Cổng thông tin tổng hợp, theo dõi và công khai tiến độ giải quyết kiến nghị của cử tri phường Bình Đông.
             </p>
             <div className="anim-hero">
               <a href="/login" className="btn-neon-blue" style={{ textDecoration: "none", padding: "0.85rem 1.75rem" }}>

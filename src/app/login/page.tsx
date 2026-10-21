@@ -249,22 +249,22 @@ export default function LoginPage() {
                 boxShadow: "0 0 10px #00f0ff",
               }}
             />
-            HÀNH CHÍNH SỐ PHƯỜNG BÌNH ĐÔNG
+            HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
           </div>
 
           {/* Headline Statement */}
           <h1
             className="gsap-anim-title"
             style={{
-              fontSize: "clamp(2rem, 3.8vw, 3.4rem)",
+              fontSize: "clamp(1.75rem, 3.2vw, 2.75rem)",
               fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: "-0.03em",
+              lineHeight: 1.25,
+              letterSpacing: "-0.02em",
               color: "#ffffff",
               marginBottom: "1.5rem",
             }}
           >
-            HỆ THỐNG TIẾP NHẬN{" "}
+            HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #ef4444 0%, #f97316 50%, #ffd700 100%)",
@@ -272,9 +272,9 @@ export default function LoginPage() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Ý KIẾN SỐ
+              KIẾN NGHỊ CỬ TRI
             </span>{" "}
-            VÀ GIẢI QUYẾT THỦ TỤC HÀNH CHÍNH PHƯỜNG BÌNH ĐÔNG
+            CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
           </h1>
 
           <p
@@ -287,7 +287,7 @@ export default function LoginPage() {
               fontWeight: 400,
             }}
           >
-            Cổng xác thực tập trung số hóa quy trình rà soát, tiếp nhận và phân định thẩm quyền xử lý hồ sơ kiến nghị giữa Chuyên viên tham mưu và Quản trị viên Phường.
+            Số hóa quy trình tiếp nhận, theo dõi, phân loại và giám sát tiến độ giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông.
           </p>
         </div>
 

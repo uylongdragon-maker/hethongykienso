@@ -309,7 +309,7 @@ export default function AccountCenterPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
           <div>
             <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem" }}>
-              Cổng Dịch Vụ Công Bình Đông • Hồ Sơ Cá Nhân
+              HĐND Phường Bình Đông • Hồ Sơ Cá Nhân
             </div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#121316", letterSpacing: "-0.03em" }}>
               Trung Tâm Tài Khoản Chuyên Viên

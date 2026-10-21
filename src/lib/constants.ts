@@ -1,4 +1,4 @@
-// Danh mục chuẩn toàn hệ thống - Hệ thống Ý kiến số Phường Bình Đông
+// Danh mục chuẩn toàn hệ thống - Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
 
 export const SOURCES = [
   "Tiếp xúc cử tri (trước kỳ họp)",
