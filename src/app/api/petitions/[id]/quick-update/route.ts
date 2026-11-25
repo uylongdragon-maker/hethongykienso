@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { buildWorkflowUpdateData } from "@/lib/petitions";
 
-// PATCH: Cập nhật nhanh tiến độ & thông tin vụ việc từ màn hình danh sách
+// PATCH: Cập nhật nhanh tiến độ & phê duyệt từ màn hình danh sách / tổng quan
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -10,22 +11,28 @@ export async function PATCH(
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ success: false, error: "Vui lòng đăng nhập." }, { status: 401 });
-    }
-    if (session.role === "CAN_BO") {
       return NextResponse.json(
-        { success: false, error: "Tài khoản Lãnh đạo phường chỉ có quyền XEM, không được phép chỉnh sửa." },
-        { status: 403 }
+        { success: false, error: "Vui lòng đăng nhập." },
+        { status: 401 }
       );
     }
 
     const { id } = await params;
     const body = await req.json();
-    const { status, notes, extendedUntil, replyDocNumber, replyDocLink } = body;
 
-    // Kiểm tra bản ghi tồn tại
     const existing = await prisma.petition.findUnique({
       where: { id },
+      select: {
+        id: true,
+        status: true,
+        reviewStatus: true,
+        replyDocNumber: true,
+        replyDocDate: true,
+        replyDocLink: true,
+        attachmentUrl: true,
+        extendedUntil: true,
+        notes: true,
+      },
     });
 
     if (!existing) {
@@ -35,40 +42,55 @@ export async function PATCH(
       );
     }
 
-    // Kiểm tra tính hợp lệ của trạng thái nếu có gửi lên
-    if (status) {
-      const validStatuses = ["Đang xử lý", "Đã xong", "Chờ Admin phê duyệt", "Quá hạn"];
-      if (!validStatuses.includes(status)) {
-        return NextResponse.json(
-          { success: false, error: "Trạng thái giải quyết không hợp lệ." },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Cập nhật dữ liệu tiến độ & thông tin bổ sung
-    const updated = await prisma.petition.update({
-      where: { id },
-      data: {
-        status: status || existing.status,
-        notes: notes !== undefined ? notes : existing.notes,
-        extendedUntil: extendedUntil
-          ? new Date(extendedUntil)
-          : extendedUntil === null
-          ? null
-          : existing.extendedUntil,
-        replyDocNumber:
-          replyDocNumber !== undefined ? replyDocNumber : existing.replyDocNumber,
-        replyDocLink:
-          replyDocLink !== undefined ? replyDocLink : existing.replyDocLink,
+    const result = buildWorkflowUpdateData({
+      existing,
+      session,
+      input: {
+        status: body.status,
+        reviewStatus: body.reviewStatus,
+        notes: body.notes,
+        extendedUntil: body.extendedUntil,
+        replyDocNumber: body.replyDocNumber,
+        replyDocDate: body.replyDocDate,
+        replyDocLink: body.replyDocLink,
       },
     });
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: result.statusCode }
+      );
+    }
+
+    const updated = await prisma.petition.update({
+      where: { id },
+      data: result.data,
+      select: {
+        id: true,
+        petitionCode: true,
+        status: true,
+        reviewStatus: true,
+        replyDocNumber: true,
+        replyDocDate: true,
+        extendedUntil: true,
+        notes: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      submittedForApproval: result.submittedForApproval,
+      message: result.submittedForApproval
+        ? "Đã gửi yêu cầu trình Quản trị viên phê duyệt kết quả."
+        : "Đã lưu cập nhật tiến độ thành công.",
+    });
+  } catch (error) {
     console.error("Lỗi cập nhật nhanh vụ việc:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Không thể cập nhật vụ việc." },
+      { success: false, error: "Không thể cập nhật vụ việc." },
       { status: 500 }
     );
   }

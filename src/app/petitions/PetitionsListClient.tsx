@@ -1,64 +1,63 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useDeferredValue } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
 import FileUpload from "@/components/FileUpload";
 import { openDocumentViewer } from "@/lib/fileViewer";
-import { gsap } from "gsap";
-import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(useGSAP);
-
-interface SerializedPetition {
-  id: string;
-  petitionCode: string;
-  source: string;
-  quarter: string | null;
-  senderName: string;
-  senderAddress: string;
-  senderPhone: string | null;
-  category: string;
-  location: string;
-  content: string;
-  attachmentUrl: string | null;
-  authority: string;
-  department: string;
-  receivedDate: string;
-  deadline: string;
-  extendedUntil: string | null;
-  status: string;
-  replyDocNumber: string | null;
-  replyDocDate: string | null;
-  replyDocLink: string | null;
-  reviewStatus: string;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { escapeHtml } from "@/lib/security";
+import { REVIEW_STATUSES } from "@/lib/constants";
+import {
+  SerializedPetition,
+  extractCommitteeFromNotes,
+  formatDateVN,
+  isPetitionOverdue,
+} from "@/lib/petitionUtils";
 
 interface PetitionsListClientProps {
   initialPetitions: SerializedPetition[];
+  currentUserRole: string;
 }
 
-export default function PetitionsListClient({ initialPetitions }: PetitionsListClientProps) {
+export default function PetitionsListClient({
+  initialPetitions,
+  currentUserRole,
+}: PetitionsListClientProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [quarterFilter, setQuarterFilter] = useState("ALL");
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  
-  // Trạng thái mở modal tạo mới
+
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const isSyncingScroll = useRef(false);
 
-  // Đồng bộ thanh cuộn ngang trên và dưới
+  // Nhận tham số lọc nhanh ?status=... khi chuyển từ trang Tổng quan sang
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const st = sp.get("status");
+      if (st) {
+        setStatusFilter(st);
+      }
+    }
+  }, []);
+
+  // Reset về trang 1 khi thay đổi điều kiện lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deferredSearch, statusFilter, quarterFilter, departmentFilter, sourceFilter, categoryFilter, pageSize]);
+
   const handleTopScroll = () => {
     if (isSyncingScroll.current) return;
     isSyncingScroll.current = true;
@@ -82,14 +81,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const scrollTable = (offset: number) => {
-    if (tableContainerRef.current) {
-      tableContainerRef.current.scrollBy({ left: offset, behavior: "smooth" });
-    }
-  };
-
-  // Đánh giá quá hạn
-  const isOverdue = (pet: SerializedPetition) => {
-    return pet.status === "Quá hạn" || (pet.status !== "Đã xong" && new Date(pet.deadline) < new Date());
+    tableContainerRef.current?.scrollBy({ left: offset, behavior: "smooth" });
   };
 
   const departments = useMemo(() => {
@@ -117,19 +109,21 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   }, [initialPetitions]);
 
   const filteredPetitions = useMemo(() => {
+    const searchLower = deferredSearch.trim().toLowerCase();
     return initialPetitions.filter((p) => {
-      const searchLower = search.toLowerCase();
       const matchesSearch =
+        !searchLower ||
         p.petitionCode.toLowerCase().includes(searchLower) ||
         p.senderName.toLowerCase().includes(searchLower) ||
         p.senderAddress.toLowerCase().includes(searchLower) ||
         p.content.toLowerCase().includes(searchLower) ||
-        p.location.toLowerCase().includes(searchLower);
+        p.location.toLowerCase().includes(searchLower) ||
+        (p.replyDocNumber && p.replyDocNumber.toLowerCase().includes(searchLower));
 
       let matchesStatus = true;
       if (statusFilter !== "ALL") {
         if (statusFilter === "OVERDUE") {
-          matchesStatus = isOverdue(p);
+          matchesStatus = isPetitionOverdue(p);
         } else {
           matchesStatus = p.status === statusFilter;
         }
@@ -140,35 +134,37 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
       const matchesSource = sourceFilter === "ALL" || p.source === sourceFilter;
       const matchesCategory = categoryFilter === "ALL" || p.category === categoryFilter;
 
-      return matchesSearch && matchesStatus && matchesQuarter && matchesDepartment && matchesSource && matchesCategory;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesQuarter &&
+        matchesDepartment &&
+        matchesSource &&
+        matchesCategory
+      );
     });
-  }, [initialPetitions, search, statusFilter, quarterFilter, departmentFilter, sourceFilter, categoryFilter]);
+  }, [
+    initialPetitions,
+    deferredSearch,
+    statusFilter,
+    quarterFilter,
+    departmentFilter,
+    sourceFilter,
+    categoryFilter,
+  ]);
 
-  useGSAP(() => {
-    // Hoạt ảnh xuất hiện mượt mà từng hàng (Staggered entry) của bảng
-    gsap.from(".data-table tbody tr", {
-      opacity: 0,
-      y: 12,
-      duration: 0.35,
-      stagger: 0.02,
-      ease: "power2.out",
-      clearProps: "all"
-    });
-  }, {
-    dependencies: [filteredPetitions],
-    scope: containerRef,
-    revertOnUpdate: true
-  });
+  const totalPages = useMemo(() => {
+    if (pageSize <= 0) return 1;
+    return Math.max(1, Math.ceil(filteredPetitions.length / pageSize));
+  }, [filteredPetitions.length, pageSize]);
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
+  const paginatedPetitions = useMemo(() => {
+    if (pageSize <= 0) return filteredPetitions;
+    const start = (currentPage - 1) * pageSize;
+    return filteredPetitions.slice(start, start + pageSize);
+  }, [filteredPetitions, currentPage, pageSize]);
 
+  // Xuất công văn đôn đốc an toàn (chống Stored XSS bằng escapeHtml)
   const handleExportReminder = (pet: SerializedPetition) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -177,14 +173,19 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     const dayStr = today.getDate().toString().padStart(2, "0");
     const monthStr = (today.getMonth() + 1).toString().padStart(2, "0");
     const yearStr = today.getFullYear();
+    const dueFollowUp = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("vi-VN");
 
-    const categoryName = pet.category === "Quản lý đô thị" ? "Đô thị" : pet.category === "Chế độ chính sách" ? "Chính sách" : pet.category;
-    const locationName = pet.quarter || pet.location;
+    const safeCode = escapeHtml(pet.petitionCode);
+    const safeReceived = escapeHtml(formatDateVN(pet.receivedDate));
+    const safeCategory = escapeHtml(pet.category);
+    const safeLocation = escapeHtml(pet.quarter || pet.location);
+    const safeContent = escapeHtml(pet.content);
 
-    const htmlContent = `
-      <html>
+    const htmlContent = `<!DOCTYPE html>
+      <html lang="vi">
         <head>
-          <title>Công văn đôn đốc - ${pet.petitionCode}</title>
+          <meta charset="utf-8" />
+          <title>Công văn đôn đốc - ${safeCode}</title>
           <style>
             @media print {
               body { margin: 1.5cm; font-size: 13pt; }
@@ -197,243 +198,142 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
               margin: 2cm;
               font-size: 13pt;
             }
-            .header-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 1.5rem;
-            }
-            .header-table td {
-              vertical-align: top;
-              text-align: center;
-              padding: 0;
-            }
-            .header-left {
-              width: 45%;
-            }
-            .header-right {
-              width: 55%;
-            }
-            .title-org {
-              font-size: 11pt;
-              font-weight: bold;
-            }
-            .title-suborg {
-              font-size: 11pt;
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .title-nation {
-              font-size: 11pt;
-              font-weight: bold;
-            }
-            .title-motto {
-              font-size: 11pt;
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .doc-number {
-              margin-top: 0.5rem;
-              font-size: 11pt;
-            }
-            .doc-date {
-              margin-top: 0.5rem;
-              font-style: italic;
-              font-size: 11pt;
-              text-align: right;
-            }
-            .doc-title {
-              text-align: center;
-              font-weight: bold;
-              margin-top: 2rem;
-              margin-bottom: 1.5rem;
-            }
-            .recipient {
-              text-align: center;
-              font-weight: bold;
-              margin-bottom: 1.5rem;
-            }
-            .content-section {
-              text-align: justify;
-              margin-bottom: 1rem;
-              text-indent: 1.5cm;
-            }
-            .content-section p {
-              margin: 0.5rem 0;
-              text-indent: 1.5cm;
-            }
-            .bullet-list {
-              margin-left: 1.5cm;
-              text-align: justify;
-            }
-            .bullet-item {
-              margin: 0.5rem 0;
-            }
-            .signature-table {
-              width: 100%;
-              margin-top: 2rem;
-              border-collapse: collapse;
-            }
-            .signature-table td {
-              vertical-align: top;
-              padding: 0;
-            }
-            .signature-left {
-              width: 40%;
-              font-size: 11pt;
-              text-align: left;
-            }
-            .signature-right {
-              width: 60%;
-              text-align: center;
-            }
+            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+            .header-table td { vertical-align: top; text-align: center; padding: 0; }
+            .header-left { width: 45%; }
+            .header-right { width: 55%; }
+            .title-org, .title-nation { font-size: 11pt; font-weight: bold; }
+            .title-suborg { font-size: 11pt; font-weight: bold; text-decoration: underline; }
+            .doc-number { margin-top: 0.5rem; font-size: 11pt; }
+            .doc-date { margin-top: 0.5rem; font-style: italic; font-size: 11pt; text-align: right; }
+            .doc-title { text-align: center; font-weight: bold; margin-top: 2rem; margin-bottom: 1.5rem; font-size: 14pt; }
+            .recipient { text-align: center; font-weight: bold; margin-bottom: 1.5rem; }
+            .content-section { text-align: justify; margin-bottom: 1rem; text-indent: 1.27cm; }
+            .bullet-list { margin-left: 1.27cm; text-align: justify; }
+            .bullet-item { margin: 0.45rem 0; }
+            .signature-table { width: 100%; margin-top: 2rem; border-collapse: collapse; }
+            .signature-table td { vertical-align: top; padding: 0; }
+            .signature-left { width: 40%; font-size: 11pt; text-align: left; }
+            .signature-right { width: 60%; text-align: center; }
             .btn-print-box {
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: #000;
-              color: #fff;
-              padding: 10px 20px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-weight: bold;
-              border: none;
-              font-family: sans-serif;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              position: fixed; top: 20px; right: 20px; background: #121316; color: #fff;
+              padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none; font-family: sans-serif;
             }
           </style>
         </head>
         <body>
           <button class="no-print btn-print-box" onclick="window.print()">In công văn / Lưu PDF</button>
-          
           <table class="header-table">
             <tr>
               <td class="header-left">
                 <div class="title-org">HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG</div>
                 <div class="title-suborg">THƯỜNG TRỰC HỘI ĐỒNG NHÂN DÂN</div>
-                <div class="doc-number">Số: &nbsp; &nbsp; &nbsp; &nbsp; /HĐND- ĐĐ</div>
+                <div class="doc-number">Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/HĐND-ĐĐ</div>
                 <div style="font-size: 9pt; margin-top: 0.35rem;">V/v đôn đốc giải quyết kiến nghị cử tri</div>
               </td>
               <td class="header-right">
                 <div class="title-nation">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                <div class="title-suborg" style="font-weight: bold;">Độc lập - Tự do - Hạnh phúc</div>
+                <div class="title-suborg">Độc lập - Tự do - Hạnh phúc</div>
                 <div class="doc-date">Bình Đông, ngày ${dayStr} tháng ${monthStr} năm ${yearStr}</div>
               </td>
             </tr>
           </table>
 
-          <div class="doc-title" style="font-size: 14pt;">
+          <div class="doc-title">
             CÔNG VĂN ĐÔN ĐỐC<br/>
             <span style="font-size: 11pt; font-weight: normal; font-style: italic;">
-              Về việc đôn đốc giải quyết kiến nghị cử tri trước/sau Kỳ họp, nhiệm kỳ 2026 - 2031 (lần 1)
+              Về việc đôn đốc giải quyết kiến nghị cử tri nhiệm kỳ 2026 - 2031
             </span>
           </div>
 
-          <div class="recipient">
-            Kính gửi: Ủy ban nhân dân phường Bình Đông
+          <div class="recipient">Kính gửi: Ủy ban nhân dân phường Bình Đông</div>
+
+          <div class="content-section">
+            Thực hiện chức năng giám sát theo quy định của Luật Tổ chức chính quyền địa phương và căn cứ dữ liệu theo dõi trên Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông.
           </div>
 
           <div class="content-section">
-            Thực hiện chức năng giám sát theo quy định của Luật Tổ chức chính quyền địa phương và căn cứ vào dữ liệu theo dõi trên Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông.
+            Qua rà soát tiến độ giải quyết các kiến nghị của cử tri tính đến ngày ${dayStr}/${monthStr}/${yearStr}, Thường trực HĐND phường ghi nhận:
           </div>
 
           <div class="content-section">
-            Qua rà soát thực tế tiến độ giải quyết các kiến nghị của cử tri trước, sau Kỳ họp và việc thực hiện các thông báo kết luận sau giám sát, khảo sát của Thường trực HĐND phường, tính đến ngày ${dayStr}/${monthStr}/${yearStr}, Thường trực HĐND phường nhận thấy:
+            1. Về tiến độ giải quyết: Hồ sơ mã số <strong>${safeCode}</strong> tiếp nhận ngày ${safeReceived} đã quá thời hạn giải quyết theo quy định nhưng chưa có văn bản phản hồi chính thức.
           </div>
 
           <div class="content-section">
-            1. Về tiến độ giải quyết kiến nghị cử tri: Theo dữ liệu hệ thống, hiện vụ việc mã số <strong>${pet.petitionCode}</strong> gửi ngày ${new Date(pet.receivedDate).toLocaleDateString("vi-VN")} đã quá thời hạn giải quyết theo quy định nhưng chưa có báo cáo kết quả hoặc văn bản phản hồi chính thức từ UBND phường.
+            2. Nội dung phản ánh thuộc lĩnh vực <strong>${safeCategory}</strong> tại khu vực <strong>${safeLocation}</strong>: <em>&ldquo;${safeContent}&rdquo;</em> cần sớm được giải quyết dứt điểm để đảm bảo quyền lợi chính đáng của cử tri.
           </div>
 
           <div class="content-section">
-            2. Về thực hiện kết luận giám sát, khảo sát: Nội dung kiến nghị về lĩnh vực <strong>${categoryName}</strong> tại khu vực <strong>${locationName}</strong> với nội dung: <em>"${pet.content}"</em> vẫn chưa được triển khai dứt điểm, gây ảnh hưởng đến quyền lợi chính đáng của cử tri và uy tín của cơ quan nhà nước tại địa bàn phường.
-          </div>
-
-          <div class="content-section">
-            Để đảm bảo tính nghiêm minh trong công tác giải quyết kiến nghị và thực hiện đúng lộ trình chuyển đổi số của phường, Thường trực HĐND phường đề nghị UBND phường:
+            Thường trực HĐND phường đề nghị UBND phường:
           </div>
 
           <div class="bullet-list">
-            <div class="bullet-item">- Tập trung chỉ đạo các bộ phận chuyên môn rà soát, xác định rõ nguyên nhân, trách nhiệm của cá nhân, đơn vị trong việc chậm trễ đối với nội dung nêu trên.</div>
-            <div class="bullet-item">- Khẩn trương cập nhật tiến độ, kết quả xử lý và đính kèm văn bản trả lời lên Hệ thống trước ngày ${new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("vi-VN")} để Thường trực HĐND phường tổng hợp, thông tin đến cử tri.</div>
-            <div class="bullet-item">- Đối với các kiến nghị có vướng mắc khách quan hoặc vượt thẩm quyền, yêu cầu có báo cáo bằng văn bản nêu rõ lộ trình và phương hướng kiến nghị cấp trên để Thường trực HĐND có cơ sở giám sát tiếp theo.</div>
-          </div>
-
-          <div class="content-section" style="margin-top: 1rem;">
-            Thường trực HĐND phường đề nghị UBND phường nghiêm túc triển khai thực hiện và phản hồi đúng thời hạn quy định./.
+            <div class="bullet-item">Chỉ đạo bộ phận chuyên môn khẩn trương kiểm tra, xử lý dứt điểm nội dung kiến nghị nêu trên.</div>
+            <div class="bullet-item">Cập nhật kết quả xử lý và đính kèm văn bản trả lời lên Hệ thống trước ngày ${escapeHtml(dueFollowUp)} để Thường trực HĐND phường tổng hợp thông tin đến cử tri.</div>
           </div>
 
           <table class="signature-table">
             <tr>
               <td class="signature-left">
                 <strong>Nơi nhận:</strong><br/>
-                - Như trên;<br/>
-                - Đảng ủy phường (để báo cáo);<br/>
-                - Đại biểu HĐND phường (để biết);<br/>
-                - Lưu: VT.
+                Như trên;<br/>
+                Đảng ủy phường (để báo cáo);<br/>
+                Đại biểu HĐND phường;<br/>
+                Lưu: VT.
               </td>
               <td class="signature-right">
                 <strong>TM. THƯỜNG TRỰC HĐND</strong><br/>
                 <strong>KT. CHỦ TỊCH</strong><br/>
                 <strong>PHÓ CHỦ TỊCH</strong>
                 <br/><br/><br/><br/>
-                <strong style="font-size: 12pt;">(Ký tên, đóng dấu)</strong>
+                <strong>(Ký tên, đóng dấu)</strong>
               </td>
             </tr>
           </table>
         </body>
-      </html>
-    `;
+      </html>`;
 
+    printWindow.document.open();
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
 
-  const getStatusBadge = (pet: SerializedPetition) => {
-    const overdue = isOverdue(pet);
+  const renderStatusCell = (pet: SerializedPetition) => {
+    const overdue = isPetitionOverdue(pet);
     if (overdue) {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "center" }}>
-          <span className="badge badge-overdue">Quá hạn</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", alignItems: "center" }}>
+          <span className="status-text status-overdue">Quá hạn</span>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               handleExportReminder(pet);
             }}
-            className="btn-neon-blue"
-            style={{
-              padding: "0.2rem 0.4rem",
-              fontSize: "0.7rem",
-              lineHeight: "1.1",
-              backgroundColor: "rgba(225, 29, 72, 0.08)",
-              color: "var(--danger)",
-              borderColor: "rgba(225, 29, 72, 0.2)",
-              borderRadius: "4px",
-              cursor: "pointer",
-              whiteSpace: "nowrap"
-            }}
-            title="Xuất công văn nhắc nhở"
+            className="btn-danger-tonal"
+            style={{ padding: "0.22rem 0.5rem", fontSize: "0.7rem" }}
           >
-            Công văn đôn đốc
+            Xuất đôn đốc
           </button>
         </div>
       );
     }
+
     switch (pet.status) {
       case "Đã xong":
-        return <span className="badge badge-resolved">Đã xong</span>;
+        return <span className="status-text status-resolved">Đã xong</span>;
       case "Đang xử lý":
-        return <span className="badge badge-in-progress">Đang xử lý</span>;
+        return <span className="status-text status-progress">Đang xử lý</span>;
       case "Chờ Admin phê duyệt":
-        return <span className="badge badge-new" style={{ color: "var(--info)", backgroundColor: "var(--info-bg)" }}>Chờ Admin phê duyệt</span>;
+        return <span className="status-text status-pending-admin">Chờ Admin phê duyệt</span>;
       default:
-        return <span className="badge">{pet.status}</span>;
+        return <span className="status-text">{pet.status}</span>;
     }
   };
 
   const handleExportCSV = () => {
-    // Xuất file định dạng Excel XML (.xls) chính thống, Microsoft Excel mọi phiên bản (Windows/Mac)
-    // mở trực tiếp 100% không bao giờ bị lỗi font tiếng Việt, tự động nhận đúng cột và kẻ bảng đẹp
-    const escapeXml = (unsafe: any) => {
+    const escapeXml = (unsafe: unknown) => {
       if (unsafe === null || unsafe === undefined) return "";
       return String(unsafe)
         .replace(/&/g, "&amp;")
@@ -446,35 +346,35 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     let xmlRows = "";
     filteredPetitions.forEach((pet, index) => {
       const phone = pet.senderPhone || "";
-      const extended = pet.extendedUntil ? formatDate(pet.extendedUntil) : "";
-      const categoryDisplay = pet.category || "";
+      const extended = pet.extendedUntil ? formatDateVN(pet.extendedUntil) : "";
       const authPhuong = pet.authority === "UBND phường" ? "X" : "";
       const authSo = pet.authority !== "UBND phường" ? "X" : "";
 
       let replyLinkDisplay = "";
       if (pet.replyDocLink) {
-        if (pet.replyDocLink.startsWith("data:")) {
-          replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} [Tệp đính kèm]` : "[Tệp đính kèm]";
+        if (pet.replyDocLink.startsWith("data:") || pet.replyDocLink.startsWith("/api/petitions/")) {
+          replyLinkDisplay = pet.replyDocNumber
+            ? `${pet.replyDocNumber} [Tệp đính kèm]`
+            : "[Tệp đính kèm]";
         } else {
-          replyLinkDisplay = pet.replyDocNumber ? `${pet.replyDocNumber} (${pet.replyDocLink})` : pet.replyDocLink;
+          replyLinkDisplay = pet.replyDocNumber
+            ? `${pet.replyDocNumber} (${pet.replyDocLink})`
+            : pet.replyDocLink;
         }
       } else {
         replyLinkDisplay = pet.replyDocNumber || "";
       }
 
-      let reviewHoanThanh = "";
-      let reviewChuaGiaiQuyet = "";
-      let reviewMotPhan = "";
+      const reviewHoanThanh =
+        pet.reviewStatus === "Hoàn thành" ? pet.replyDocNumber || "Hoàn thành" : "";
+      const reviewChuaGiaiQuyet =
+        pet.reviewStatus === "Chưa giải quyết" ? pet.replyDocNumber || "Chưa giải quyết" : "";
+      const reviewMotPhan =
+        pet.reviewStatus === "Mới giải quyết 1 phần"
+          ? pet.replyDocNumber || "Mới giải quyết 1 phần"
+          : "";
 
-      if (pet.reviewStatus === "Hoàn thành") {
-        reviewHoanThanh = pet.replyDocNumber || "Hoàn thành";
-      } else if (pet.reviewStatus === "Chưa giải quyết") {
-        reviewChuaGiaiQuyet = pet.replyDocNumber || "Chưa giải quyết";
-      } else if (pet.reviewStatus === "Mới giải quyết 1 phần") {
-        reviewMotPhan = pet.replyDocNumber || "Mới giải quyết 1 phần";
-      }
-
-      const notes = pet.notes || "";
+      const displayStatus = isPetitionOverdue(pet) ? "Quá hạn" : pet.status;
 
       xmlRows += `
       <Row>
@@ -484,22 +384,22 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         <Cell><Data ss:Type="String">${escapeXml(pet.senderName)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(pet.senderAddress)}</Data></Cell>
         <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(phone)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(categoryDisplay)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.category)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(pet.location)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(pet.content)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(pet.department)}</Data></Cell>
         <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(authPhuong)}</Data></Cell>
         <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(authSo)}</Data></Cell>
-        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDate(pet.receivedDate))}</Data></Cell>
-        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDate(pet.deadline))}</Data></Cell>
-        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">Ngày tổ chức kỳ họp trừ 30 ngày</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDateVN(pet.receivedDate))}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDateVN(pet.deadline))}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">Trước khai mạc kỳ họp 30 ngày</Data></Cell>
         <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(extended)}</Data></Cell>
-        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(pet.status)}</Data></Cell>
+        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(displayStatus)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(replyLinkDisplay)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(reviewHoanThanh)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(reviewChuaGiaiQuyet)}</Data></Cell>
         <Cell><Data ss:Type="String">${escapeXml(reviewMotPhan)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(notes)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(pet.notes || "")}</Data></Cell>
       </Row>`;
     });
 
@@ -512,7 +412,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
  xmlns:html="http://www.w3.org/TR/REC-html40">
  <Styles>
   <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
+   <Alignment ss:Vertical="Center" ss:WrapText="1"/>
    <Borders>
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D1D5DB"/>
@@ -543,28 +443,12 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
  </Styles>
  <Worksheet ss:Name="So_Theo_Doi_Kien_Nghi">
   <Table ss:DefaultRowHeight="24">
-   <Column ss:Width="40"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="180"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="160"/>
-   <Column ss:Width="180"/>
-   <Column ss:Width="260"/>
-   <Column ss:Width="160"/>
-   <Column ss:Width="60"/>
-   <Column ss:Width="70"/>
-   <Column ss:Width="85"/>
-   <Column ss:Width="85"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="85"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="160"/>
+   <Column ss:Width="40"/><Column ss:Width="95"/><Column ss:Width="130"/><Column ss:Width="120"/>
+   <Column ss:Width="180"/><Column ss:Width="90"/><Column ss:Width="160"/><Column ss:Width="180"/>
+   <Column ss:Width="260"/><Column ss:Width="160"/><Column ss:Width="60"/><Column ss:Width="70"/>
+   <Column ss:Width="85"/><Column ss:Width="85"/><Column ss:Width="140"/><Column ss:Width="85"/>
+   <Column ss:Width="95"/><Column ss:Width="140"/><Column ss:Width="120"/><Column ss:Width="120"/>
+   <Column ss:Width="120"/><Column ss:Width="160"/>
    <Row ss:Height="32">
     <Cell ss:StyleID="Header"><Data ss:Type="String">STT</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Mã vụ việc</Data></Cell>
@@ -581,9 +465,9 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     <Cell ss:StyleID="Header"><Data ss:Type="String">Ngày tiếp nhận</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Hạn giải quyết</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Thời hạn báo cáo tổng hợp</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Gia hạn (nếu có)</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Gia hạn</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Trạng thái xử lý</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Văn bản trả lời (Link)</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Văn bản trả lời</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: Hoàn thành</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: Chưa giải quyết</Data></Cell>
     <Cell ss:StyleID="Header"><Data ss:Type="String">Rà soát: 1 phần</Data></Cell>
@@ -598,7 +482,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `danh_sach_kien_nghi_${new Date().toISOString().split('T')[0]}.xls`);
+    link.setAttribute("download", `so_theo_doi_kien_nghi_${new Date().toISOString().split("T")[0]}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -606,55 +490,40 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const handleExportOfficialLetter = () => {
-    // Tạo nội dung công văn gửi các phòng ban dưới dạng CSV
-    let csv = "STT,Mã vụ việc,Nội dung kiến nghị,Đơn vị xử lý trực tiếp,Thẩm quyền xử lý,Ngày tiếp nhận,Hạn giải quyết,Trạng thái,Ghi chú yêu cầu\n";
+    let csv =
+      "STT,Mã vụ việc,Nội dung kiến nghị,Đơn vị xử lý trực tiếp,Thẩm quyền xử lý,Ngày tiếp nhận,Hạn giải quyết,Trạng thái,Ghi chú\n";
     const pending = filteredPetitions.filter((p) => p.status !== "Đã xong");
     pending.forEach((pet, index) => {
-      const notes = pet.notes || "";
-      csv += `${index + 1},${pet.petitionCode},"${pet.content.replace(/"/g, '""')}","${pet.department}","${pet.authority}","${formatDate(pet.receivedDate)}","${formatDate(pet.deadline)}","${pet.status}","${notes}"\n`;
+      const { cleanNotes } = extractCommitteeFromNotes(pet.notes);
+      const st = isPetitionOverdue(pet) ? "Quá hạn" : pet.status;
+      csv += `${index + 1},${pet.petitionCode},"${pet.content.replace(/"/g, '""')}","${pet.department}","${pet.authority}","${formatDateVN(pet.receivedDate)}","${formatDateVN(pet.extendedUntil || pet.deadline)}","${st}","${cleanNotes.replace(/"/g, '""')}"\n`;
     });
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `cong_van_gui_phong_ban_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `danh_sach_chua_hoan_thanh_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const handleFormSuccess = () => {
-    setIsCreateOpen(false);
-    router.refresh();
-  };
-
-  // Cập nhật tiến độ nhanh (inline)
+  // State modal cập nhật nhanh
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState("");
+  const [quickReviewStatus, setQuickReviewStatus] = useState("");
   const [quickNotes, setQuickNotes] = useState("");
   const [quickExtendedUntil, setQuickExtendedUntil] = useState("");
   const [quickReplyDocNumber, setQuickReplyDocNumber] = useState("");
   const [quickReplyDocLink, setQuickReplyDocLink] = useState("");
   const [quickLoading, setQuickLoading] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [quickError, setQuickError] = useState<string | null>(null);
-
-  // Lấy role của user hiện tại
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated && data.user) {
-          setCurrentUserRole(data.user.role);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const handleDeletePetition = async (petId: string, petCode: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn XÓA vụ việc "${petCode}"? Hành động này không thể hoàn tác!`)) return;
+    if (!confirm(`Xác nhận xóa vĩnh viễn vụ việc "${petCode}"?`)) return;
     setDeletingId(petId);
     try {
       const res = await fetch(`/api/petitions/${petId}`, { method: "DELETE" });
@@ -662,7 +531,6 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
       if (!res.ok || !data.success) {
         alert(data.error || "Không thể xóa vụ việc.");
       } else {
-        alert("Đã xóa vụ việc thành công!");
         router.refresh();
       }
     } catch {
@@ -673,9 +541,11 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   const openQuickUpdate = (pet: SerializedPetition) => {
+    const { cleanNotes } = extractCommitteeFromNotes(pet.notes);
     setUpdatingId(pet.id);
     setQuickStatus(pet.status);
-    setQuickNotes(pet.notes || "");
+    setQuickReviewStatus(pet.reviewStatus || "Chưa giải quyết");
+    setQuickNotes(cleanNotes);
     setQuickExtendedUntil(pet.extendedUntil ? pet.extendedUntil.split("T")[0] : "");
     setQuickReplyDocNumber(pet.replyDocNumber || "");
     setQuickReplyDocLink(pet.replyDocLink || "");
@@ -692,6 +562,7 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: quickStatus,
+          reviewStatus: quickReviewStatus,
           notes: quickNotes,
           extendedUntil: quickExtendedUntil || null,
           replyDocNumber: quickReplyDocNumber || null,
@@ -710,496 +581,543 @@ export default function PetitionsListClient({ initialPetitions }: PetitionsListC
   };
 
   return (
-    <div ref={containerRef}>
-      <div className="page-header" style={{ marginBottom: "2rem" }}>
+    <div className="page-content">
+      <div className="page-header no-print">
         <div>
-          <h1 className="page-title">Sổ theo dõi & Giám sát vụ việc</h1>
-          <p className="page-subtitle">Sổ chi tiết theo dõi tiến độ giải quyết kiến nghị cử tri</p>
+          <h1 className="page-title">Sổ theo dõi & giám sát vụ việc</h1>
+          <p className="page-subtitle">
+            Hiển thị {paginatedPetitions.length} trên tổng số {filteredPetitions.length} hồ sơ phù hợp
+          </p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+
+        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
           {currentUserRole !== "CAN_BO" && (
-            <button onClick={() => setIsCreateOpen(true)} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            <button onClick={() => setIsCreateOpen(true)} className="btn-accent">
               Tiếp nhận kiến nghị
             </button>
           )}
-          <button onClick={handleExportCSV} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }} title="Xuất file Excel chuẩn tiếng Việt">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <button onClick={handleExportCSV} className="btn-primary">
             Xuất Excel
           </button>
-          <button onClick={handleExportOfficialLetter} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderColor: "var(--info)", color: "var(--info)" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Công văn gửi các phòng ban
+          <button onClick={handleExportOfficialLetter} className="btn-secondary">
+            Danh sách đôn đốc phòng ban
           </button>
-          <button onClick={() => window.print()} className="btn-neon-blue" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            In báo cáo
+          <button onClick={() => window.print()} className="btn-secondary">
+            In sổ
           </button>
         </div>
       </div>
 
-      <div className="glass-card" style={{ padding: "1.5rem" }}>
-        {/* Thanh tìm kiếm và bộ lọc */}
-        <div className="filter-bar" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-          <div className="search-input-wrapper" style={{ flexGrow: 1, minWidth: "250px" }}>
-            <input
-              type="text"
-              placeholder="Tìm kiếm mã, người gửi, nội dung..."
-              className="form-control"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          
-          <div style={{ minWidth: "150px" }}>
-            <select
-              className="form-control"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="Đang xử lý">Đang xử lý</option>
-              <option value="Đã xong">Đã xong</option>
-              <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
-              <option value="OVERDUE">Quá hạn</option>
-            </select>
-          </div>
+      {/* Bộ lọc tìm kiếm đa tiêu chí đặt trực tiếp trên nền */}
+      <div
+        className="no-print"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2fr repeat(5, minmax(140px, 1fr))",
+          gap: "0.65rem",
+          marginBottom: "1.25rem",
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Tìm mã vụ việc, họ tên, địa chỉ, nội dung, số văn bản..."
+          className="form-control"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
-          <div style={{ minWidth: "150px" }}>
-            <select
-              className="form-control"
-              value={quarterFilter}
-              onChange={(e) => setQuarterFilter(e.target.value)}
-            >
-              <option value="ALL">Tất cả khu phố</option>
-              {Array.from({ length: 30 }, (_, i) => {
-                const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
-                return <option key={kp} value={kp}>{kp}</option>;
-              })}
-            </select>
-          </div>
+        <select className="form-control" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="Đang xử lý">Đang xử lý</option>
+          <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
+          <option value="Đã xong">Đã xong</option>
+          <option value="OVERDUE">Quá hạn</option>
+        </select>
 
-          <div style={{ minWidth: "180px" }}>
-            <select
-              className="form-control"
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-            >
-              <option value="ALL">Tất cả đơn vị</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
-          </div>
+        <select className="form-control" value={quarterFilter} onChange={(e) => setQuarterFilter(e.target.value)}>
+          <option value="ALL">Tất cả khu phố</option>
+          {Array.from({ length: 30 }, (_, i) => {
+            const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
+            return (
+              <option key={kp} value={kp}>
+                {kp}
+              </option>
+            );
+          })}
+        </select>
 
-          <div style={{ minWidth: "180px" }}>
-            <select
-              className="form-control"
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-            >
-              <option value="ALL">Tất cả nguồn / kỳ họp</option>
-              {sources.map((src) => (
-                <option key={src} value={src}>
-                  {src}
-                </option>
-              ))}
-            </select>
-          </div>
+        <select className="form-control" value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
+          <option value="ALL">Tất cả đơn vị</option>
+          {departments.map((dept) => (
+            <option key={dept} value={dept}>
+              {dept}
+            </option>
+          ))}
+        </select>
 
-          <div style={{ minWidth: "180px" }}>
-            <select
-              className="form-control"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="ALL">Tất cả lĩnh vực</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <select className="form-control" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <option value="ALL">Tất cả nguồn</option>
+          {sources.map((src) => (
+            <option key={src} value={src}>
+              {src}
+            </option>
+          ))}
+        </select>
 
-        {/* Thanh hỗ trợ cuộn ngang tiện lợi */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "0.55rem 0.85rem",
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            marginBottom: "0.5rem",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.82rem", color: "#334155", fontWeight: 600 }}>
-            <span style={{ fontSize: "1rem" }}>↔️</span>
-            <span>Bảng sổ theo dõi gồm 23 cột. Bạn có thể kéo thanh cuộn bên dưới hoặc dùng 2 nút điều hướng để xem hết nội dung sang phải:</span>
-          </div>
+        <select className="form-control" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <option value="ALL">Tất cả lĩnh vực</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </div>
 
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+      {/* Điều hướng cuộn ngang & phân trang gọn gàng */}
+      <div
+        className="no-print"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "1rem",
+          flexWrap: "wrap",
+          marginBottom: "0.65rem",
+        }}
+      >
+        <div style={{ display: "flex", gap: "0.45rem", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => scrollTable(-520)}
+            className="btn-secondary"
+            style={{ padding: "0.35rem 0.75rem", fontSize: "0.76rem" }}
+          >
+            Cuộn trái
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollTable(520)}
+            className="btn-secondary"
+            style={{ padding: "0.35rem 0.75rem", fontSize: "0.76rem" }}
+          >
+            Cuộn phải
+          </button>
+          {(search ||
+            statusFilter !== "ALL" ||
+            quarterFilter !== "ALL" ||
+            departmentFilter !== "ALL" ||
+            sourceFilter !== "ALL" ||
+            categoryFilter !== "ALL") && (
             <button
               type="button"
-              onClick={() => scrollTable(-450)}
-              className="btn-neon-blue"
-              style={{ padding: "0.3rem 0.75rem", fontSize: "0.76rem" }}
-              title="Cuộn sang trái"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("ALL");
+                setQuarterFilter("ALL");
+                setDepartmentFilter("ALL");
+                setSourceFilter("ALL");
+                setCategoryFilter("ALL");
+              }}
+              className="btn-danger-tonal"
+              style={{ padding: "0.35rem 0.75rem", fontSize: "0.76rem" }}
             >
-              ◀ Cuộn sang trái
+              Xóa bộ lọc
             </button>
-            <button
-              type="button"
-              onClick={() => scrollTable(450)}
-              className="btn-neon-blue"
-              style={{ padding: "0.3rem 0.75rem", fontSize: "0.76rem" }}
-              title="Cuộn sang phải"
-            >
-              Cuộn sang phải ▶
-            </button>
-          </div>
+          )}
         </div>
 
-        {/* Thanh cuộn ngang phụ ở đỉnh bảng (Top Scrollbar) */}
-        <div
-          ref={topScrollRef}
-          onScroll={handleTopScroll}
-          style={{
-            overflowX: "auto",
-            overflowY: "hidden",
-            width: "100%",
-            height: "14px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "6px",
-            marginBottom: "0.5rem",
-          }}
-        >
-          <div style={{ width: "3500px", height: "1px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+          <select
+            className="form-control"
+            style={{ width: "auto", padding: "0.35rem 2rem 0.35rem 0.75rem", fontSize: "0.78rem" }}
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+          >
+            <option value={25}>25 dòng / trang</option>
+            <option value={50}>50 dòng / trang</option>
+            <option value={100}>100 dòng / trang</option>
+            <option value={0}>Hiển thị tất cả</option>
+          </select>
+
+          {pageSize > 0 && totalPages > 1 && (
+            <div className="tabular-nums" style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", fontWeight: 700 }}>
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="btn-secondary"
+                style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
+              >
+                Trước
+              </button>
+              <span>
+                Trang {currentPage}/{totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="btn-secondary"
+                style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
+              >
+                Sau
+              </button>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Bảng chi tiết */}
-        <div
-          ref={tableContainerRef}
-          onScroll={handleTableScroll}
-          className="table-container"
-          style={{
-            overflowX: "auto",
-            overflowY: "auto",
-            width: "100%",
-            maxHeight: "72vh",
-            border: "1px solid var(--border-color)",
-            borderRadius: "12px",
-          }}
-        >
-          <table className="data-table ledger-table">
-            <thead>
+      {/* Thanh cuộn ngang đồng bộ */}
+      <div
+        ref={topScrollRef}
+        onScroll={handleTopScroll}
+        className="no-print"
+        style={{
+          overflowX: "auto",
+          overflowY: "hidden",
+          width: "100%",
+          height: "10px",
+          marginBottom: "0.4rem",
+        }}
+      >
+        <div style={{ width: "3100px", height: "1px" }} />
+      </div>
+
+      {/* Sổ theo dõi 23 cột chuẩn hành chính */}
+      <div
+        ref={tableContainerRef}
+        onScroll={handleTableScroll}
+        className="table-container"
+        style={{ backgroundColor: "#ffffff", borderRadius: "var(--radius-lg)" }}
+      >
+        <table className="data-table ledger-table">
+          <thead>
+            <tr>
+              <th rowSpan={2} style={{ width: "52px", textAlign: "center" }}>STT</th>
+              <th rowSpan={2} style={{ width: "115px" }}>Mã vụ việc</th>
+              <th rowSpan={2} style={{ width: "140px" }}>Nguồn tiếp nhận</th>
+              <th colSpan={3} style={{ textAlign: "center" }}>Thông tin người gửi</th>
+              <th rowSpan={2} style={{ width: "150px" }}>Lĩnh vực</th>
+              <th rowSpan={2} style={{ width: "190px" }}>Địa bàn phản ánh</th>
+              <th rowSpan={2} style={{ width: "340px" }}>Nội dung kiến nghị</th>
+              <th rowSpan={2} style={{ width: "200px" }}>Đơn vị xử lý trực tiếp</th>
+              <th colSpan={2} style={{ textAlign: "center" }}>Thẩm quyền</th>
+              <th rowSpan={2} style={{ width: "110px" }}>Ngày tiếp nhận</th>
+              <th rowSpan={2} style={{ width: "115px" }}>Hạn giải quyết</th>
+              <th rowSpan={2} style={{ width: "160px" }}>Thời hạn báo cáo kỳ họp</th>
+              <th rowSpan={2} style={{ width: "110px" }}>Gia hạn</th>
+              <th rowSpan={2} style={{ width: "135px", textAlign: "center" }}>Trạng thái</th>
+              <th rowSpan={2} style={{ width: "155px" }}>Văn bản trả lời</th>
+              <th colSpan={3} style={{ textAlign: "center" }}>Kết quả rà soát</th>
+              <th rowSpan={2} style={{ width: "190px" }}>Ghi chú</th>
+              <th rowSpan={2} style={{ width: "155px", textAlign: "center" }}>Thao tác</th>
+            </tr>
+            <tr>
+              <th style={{ width: "135px" }}>Họ tên</th>
+              <th style={{ width: "200px" }}>Địa chỉ liên hệ</th>
+              <th style={{ width: "105px" }}>Điện thoại</th>
+              <th style={{ width: "75px", textAlign: "center" }}>Phường</th>
+              <th style={{ width: "90px", textAlign: "center" }}>Sở ngành TP</th>
+              <th style={{ width: "110px", textAlign: "center" }}>Hoàn thành</th>
+              <th style={{ width: "110px", textAlign: "center" }}>Chưa giải quyết</th>
+              <th style={{ width: "110px", textAlign: "center" }}>Một phần</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedPetitions.length === 0 ? (
               <tr>
-                <th rowSpan={2} style={{ width: "60px", textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>STT</th>
-                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Mã vụ việc</th>
-                <th rowSpan={2} style={{ width: "140px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Nguồn tiếp nhận</th>
-                <th colSpan={3} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Thông tin người gửi</th>
-                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Lĩnh vực</th>
-                <th rowSpan={2} style={{ width: "200px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Địa chỉ nơi phản ánh (GPS)</th>
-                <th rowSpan={2} style={{ width: "380px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Nội dung kiến nghị</th>
-                <th rowSpan={1} style={{ width: "240px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle", textAlign: "center" }}>Đơn vị xử lý trực tiếp thuộc cấp phường</th>
-                <th colSpan={2} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Thẩm quyền xử lý</th>
-                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Ngày tiếp nhận</th>
-                <th rowSpan={2} style={{ width: "420px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>UBND chuẩn bị báo cáo tổng hợp kết quả giải quyết, trả lời kiến nghị của cử tri thuộc thẩm quyền giải quyết (Chậm nhất là 30 ngày, trước ngày khai mạc kỳ họp HĐND)</th>
-                <th rowSpan={2} style={{ width: "200px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Thời hạn báo cáo tổng hợp kết quả</th>
-                <th rowSpan={2} style={{ width: "120px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Thời gian gia hạn (nếu có)</th>
-                <th rowSpan={2} style={{ width: "140px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", textAlign: "center", verticalAlign: "middle" }}>Trạng thái xử lý</th>
-                <th rowSpan={2} style={{ width: "160px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Văn bản trả lời (Link)</th>
-                <th colSpan={3} style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)" }}>Nội dung rà soát trả lời kiến nghị</th>
-                <th rowSpan={2} style={{ width: "180px", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", verticalAlign: "middle" }}>Ghi chú</th>
-                <th rowSpan={2} style={{ width: "140px", textAlign: "center", borderBottom: "1px solid var(--border-color)", verticalAlign: "middle" }}>Hành động</th>
+                <td colSpan={23} style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
+                  Không tìm thấy hồ sơ phù hợp với bộ lọc hiện tại.
+                </td>
               </tr>
-              <tr>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "140px" }}>Họ tên</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "220px" }}>Địa chỉ liên hệ</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "110px" }}>Số điện thoại</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", fontWeight: "bold", width: "240px" }}>Các phòng, ban chuyên môn giải quyết</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "80px" }}>Phường</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "100px" }}>Sở/Ngành TP</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>Hoàn thành</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>Chưa giải quyết</th>
-                <th style={{ fontSize: "0.75rem", padding: "0.5rem", borderBottom: "1px solid var(--border-color)", borderRight: "1px solid var(--border-color)", width: "120px" }}>1 Phần</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPetitions.length === 0 ? (
-                <tr>
-                  <td colSpan={23} style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
-                    Không tìm thấy dữ liệu nào phù hợp.
-                  </td>
-                </tr>
-              ) : (
-                filteredPetitions.map((pet, index) => {
-                  const overdue = isOverdue(pet);
+            ) : (
+              paginatedPetitions.map((pet, idx) => {
+                const overdue = isPetitionOverdue(pet);
+                const rowNumber = pageSize > 0 ? (currentPage - 1) * pageSize + idx + 1 : idx + 1;
+                const { committee, cleanNotes } = extractCommitteeFromNotes(pet.notes);
 
-                  // Hiển thị tên lĩnh vực chính xác và đầy đủ
-                  const categoryDisplay = pet.category || "-";
+                // Sửa lỗi hiển thị 3 cột Kết quả rà soát đồng nhất với file Excel xuất ra
+                const reviewHoanThanh =
+                  pet.reviewStatus === "Hoàn thành" ? pet.replyDocNumber || "Hoàn thành" : "";
+                const reviewChuaGiaiQuyet =
+                  pet.reviewStatus === "Chưa giải quyết" ? "Chưa giải quyết" : "";
+                const reviewMotPhan =
+                  pet.reviewStatus === "Mới giải quyết 1 phần"
+                    ? pet.replyDocNumber || "Một phần"
+                    : "";
 
-                  // Tách nội dung rà soát theo trạng thái
-                  const isLongReply = pet.replyDocNumber && pet.replyDocNumber.length > 15;
-                  const reviewHoanThanh = isLongReply && pet.reviewStatus === "Hoàn thành" ? pet.replyDocNumber : "-";
-                  const reviewChuaGiaiQuyet = isLongReply && pet.reviewStatus === "Chưa giải quyết" ? pet.replyDocNumber : "-";
-                  const reviewMotPhan = isLongReply && pet.reviewStatus === "Mới giải quyết 1 phần" ? pet.replyDocNumber : "-";
-
-                  return (
-                    <tr key={pet.id} style={overdue ? { backgroundColor: "rgba(225, 29, 72, 0.04)" } : {}}>
-                      <td style={{ textAlign: "center", fontWeight: "500", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>
-                        {index + 1}
-                      </td>
-                      <td style={{ fontWeight: "700", color: overdue ? "var(--danger)" : "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.petitionCode}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.source}
-                      </td>
-                      <td style={{ fontWeight: "600", fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>{pet.senderName}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }} title={pet.senderAddress}>
-                        {pet.senderAddress}
-                      </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>{pet.senderPhone || "-"}</td>
-                      <td style={{ fontSize: "0.85rem", fontWeight: "500", borderRight: "1px solid var(--border-color)" }}>
-                        {categoryDisplay}
-                      </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.quarter || pet.location}
-                      </td>
-                      <td style={{ borderRight: "1px solid var(--border-color)" }}>
-                        <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", whiteSpace: "pre-line", minWidth: "250px" }}>
-                          {pet.content}
+                return (
+                  <tr
+                    key={pet.id}
+                    style={overdue ? { backgroundColor: "rgba(220, 38, 38, 0.045)" } : undefined}
+                  >
+                    <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{rowNumber}</td>
+                    <td
+                      style={{
+                        fontWeight: 800,
+                        fontFamily: "var(--font-mono)",
+                        color: overdue ? "var(--danger)" : "var(--text-primary)",
+                      }}
+                    >
+                      {pet.petitionCode}
+                    </td>
+                    <td>{pet.source}</td>
+                    <td style={{ fontWeight: 600 }}>{pet.senderName}</td>
+                    <td style={{ color: "var(--text-secondary)" }}>{pet.senderAddress}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                      {pet.senderPhone || ""}
+                    </td>
+                    <td>{pet.category}</td>
+                    <td style={{ color: "var(--text-secondary)" }}>
+                      {pet.quarter ? `${pet.quarter} (${pet.location})` : pet.location}
+                    </td>
+                    <td>
+                      <div style={{ whiteSpace: "pre-line" }}>{pet.content}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{pet.department}</div>
+                      {committee && (
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
+                          {committee}
                         </div>
-                      </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.department}
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.authority === "UBND phường" ? "✓" : "-"}
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: "bold", color: "var(--primary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.authority !== "UBND phường" ? "✓" : "-"}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
-                        {formatDate(pet.receivedDate)}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
-                        {formatDate(pet.deadline)}
-                      </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>
-                        Ngày tổ chức kỳ họp trừ 30 ngày
-                      </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--warning)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.extendedUntil ? formatDate(pet.extendedUntil) : "-"}
-                      </td>
-                      <td style={{ textAlign: "center", borderRight: "1px solid var(--border-color)" }}>
-                        {getStatusBadge(pet)}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.replyDocLink ? (
-                          <a
-                            href={pet.replyDocLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                              if (pet.replyDocLink?.startsWith("data:")) {
-                                e.preventDefault();
-                                openDocumentViewer(pet.replyDocLink, pet.replyDocNumber || pet.petitionCode);
-                              }
-                            }}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "0.35rem",
-                              color: "#2563eb",
-                              fontWeight: 700,
-                              textDecoration: "underline",
-                              backgroundColor: "rgba(37, 99, 235, 0.08)",
-                              padding: "0.25rem 0.5rem",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                            title="Bấm để mở và xem nội dung tệp đính kèm"
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: 800 }}>
+                      {pet.authority === "UBND phường" ? "X" : ""}
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: 800 }}>
+                      {pet.authority !== "UBND phường" ? "X" : ""}
+                    </td>
+                    <td>{formatDateVN(pet.receivedDate)}</td>
+                    <td>{formatDateVN(pet.deadline)}</td>
+                    <td style={{ color: "var(--text-muted)" }}>Trước kỳ họp 30 ngày</td>
+                    <td style={{ color: "var(--warning)", fontWeight: 600 }}>
+                      {pet.extendedUntil ? formatDateVN(pet.extendedUntil) : ""}
+                    </td>
+                    <td style={{ textAlign: "center" }}>{renderStatusCell(pet)}</td>
+                    <td>
+                      {pet.replyDocLink ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDocumentViewer(
+                              pet.replyDocLink!,
+                              pet.replyDocNumber || pet.petitionCode
+                            )
+                          }
+                          className="btn-secondary"
+                          style={{
+                            padding: "0.28rem 0.6rem",
+                            fontSize: "0.75rem",
+                            color: "var(--info)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {pet.replyDocNumber
+                            ? pet.replyDocNumber.length > 22
+                              ? pet.replyDocNumber.slice(0, 20) + "..."
+                              : pet.replyDocNumber
+                            : "Mở văn bản"}
+                        </button>
+                      ) : (
+                        <span>{pet.replyDocNumber || ""}</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center", color: "var(--success)", fontWeight: 700 }}>
+                      {reviewHoanThanh}
+                    </td>
+                    <td style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                      {reviewChuaGiaiQuyet}
+                    </td>
+                    <td style={{ textAlign: "center", color: "var(--warning)", fontWeight: 600 }}>
+                      {reviewMotPhan}
+                    </td>
+                    <td style={{ color: "var(--text-secondary)" }}>{cleanNotes}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center", flexWrap: "wrap" }}>
+                        {currentUserRole !== "CAN_BO" && (
+                          <button
+                            type="button"
+                            onClick={() => openQuickUpdate(pet)}
+                            className="btn-secondary"
+                            style={{ padding: "0.32rem 0.6rem", fontSize: "0.74rem" }}
                           >
-                            📄 {pet.replyDocNumber ? (pet.replyDocNumber.length > 25 ? pet.replyDocNumber.slice(0, 22) + "..." : pet.replyDocNumber) : "Xem tệp"} ↗
-                          </a>
-                        ) : pet.replyDocNumber ? (
-                          <span style={{ fontWeight: "500" }}>{pet.replyDocNumber}</span>
-                        ) : (
-                          "-"
+                            Cập nhật
+                          </button>
                         )}
-                      </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--success)", borderRight: "1px solid var(--border-color)" }}>{reviewHoanThanh}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", borderRight: "1px solid var(--border-color)" }}>{reviewChuaGiaiQuyet}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--warning)", borderRight: "1px solid var(--border-color)" }}>{reviewMotPhan}</td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)", borderRight: "1px solid var(--border-color)" }}>
-                        {pet.notes || "-"}
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: "0.35rem", justifyContent: "center", flexWrap: "wrap" }}>
-                          {currentUserRole !== "CAN_BO" && (
-                            <button
-                              onClick={() => openQuickUpdate(pet)}
-                              className="btn-neon-blue"
-                              style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem", display: "inline-flex", alignItems: "center", gap: "0.25rem", backgroundColor: "var(--info-bg)", color: "var(--info)", borderColor: "var(--info)" }}
-                              title="Cập nhật tiến độ nhanh"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                              Tiến độ
-                            </button>
-                          )}
-                          <a href={`/petitions/${pet.id}`} className="btn-neon-blue" style={{ padding: "0.35rem 0.6rem", fontSize: "0.7rem" }}>
-                            Chi tiết
-                          </a>
-                          {currentUserRole === "ADMIN" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePetition(pet.id, pet.petitionCode);
-                              }}
-                              className="btn-neon-blue"
-                              disabled={deletingId === pet.id}
-                              style={{
-                                padding: "0.35rem 0.6rem",
-                                fontSize: "0.7rem",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.25rem",
-                                backgroundColor: "rgba(225, 29, 72, 0.08)",
-                                color: "var(--danger)",
-                                borderColor: "rgba(225, 29, 72, 0.3)",
-                              }}
-                              title="Xóa vụ việc (Chỉ Admin)"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                              {deletingId === pet.id ? "Đang xóa..." : "Xóa"}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <Link
+                          href={`/petitions/${pet.id}`}
+                          className="btn-primary"
+                          style={{ padding: "0.32rem 0.6rem", fontSize: "0.74rem" }}
+                        >
+                          Chi tiết
+                        </Link>
+                        {currentUserRole === "ADMIN" && (
+                          <button
+                            type="button"
+                            disabled={deletingId === pet.id}
+                            onClick={() => handleDeletePetition(pet.id, pet.petitionCode)}
+                            className="btn-danger-tonal"
+                            style={{ padding: "0.32rem 0.55rem", fontSize: "0.74rem" }}
+                          >
+                            {deletingId === pet.id ? "..." : "Xóa"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Glassmorphic Modal tiếp nhận kiến nghị mới */}
+      {/* Modal tiếp nhận kiến nghị mới */}
       {isCreateOpen && (
         <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
-          <div className="modal-content glass-card" style={{ maxWidth: "750px", width: "90vw" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Tiếp nhận kiến nghị / Vụ việc mới</h3>
-              <button className="modal-close" onClick={() => setIsCreateOpen(false)}>&times;</button>
+              <h3 className="modal-title">Tiếp nhận vụ việc mới</h3>
+              <button className="modal-close" onClick={() => setIsCreateOpen(false)}>
+                &times;
+              </button>
             </div>
             <div className="modal-body">
-              <PetitionForm onSuccess={handleFormSuccess} onCancel={() => setIsCreateOpen(false)} />
+              <PetitionForm
+                onSuccess={() => {
+                  setIsCreateOpen(false);
+                  router.refresh();
+                }}
+                onCancel={() => setIsCreateOpen(false)}
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal cập nhật tiến độ nhanh */}
+      {/* Modal cập nhật tiến độ & rà soát đồng bộ */}
       {updatingId && (
         <div className="modal-overlay" onClick={() => setUpdatingId(null)}>
           <div
-            className="modal-content glass-card"
-            style={{ maxWidth: "480px", width: "90vw" }}
+            className="modal-content"
+            style={{ maxWidth: "520px" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h3 className="modal-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "0.5rem", verticalAlign: "middle" }}>
-                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                </svg>
-                Cập nhật tiến độ
-              </h3>
-              <button className="modal-close" onClick={() => setUpdatingId(null)}>&times;</button>
+              <h3 className="modal-title">Cập nhật kết quả giải quyết</h3>
+              <button className="modal-close" onClick={() => setUpdatingId(null)}>
+                &times;
+              </button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {quickError && (
-                <div style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)", padding: "0.75rem 1rem", borderRadius: "var(--radius-md)", marginBottom: "1rem", fontSize: "0.875rem", border: "1px solid rgba(225,29,72,0.2)" }}>
+                <div
+                  style={{
+                    backgroundColor: "var(--danger-bg)",
+                    color: "var(--danger)",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                  }}
+                >
                   {quickError}
                 </div>
               )}
-              <div className="form-group">
-                <label className="form-label">Trạng thái giải quyết</label>
-                <select
-                  className="form-control"
-                  value={quickStatus}
-                  onChange={(e) => setQuickStatus(e.target.value)}
-                >
-                  <option value="Đang xử lý">Đang xử lý</option>
-                  <option value="Đã xong">Đã xong</option>
-                  <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
-                  <option value="Quá hạn">Quá hạn</option>
-                </select>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+                <div className="form-group">
+                  <label className="form-label">Trạng thái xử lý</label>
+                  <select
+                    className="form-control"
+                    value={quickStatus}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQuickStatus(val);
+                      if (val === "Đã xong") setQuickReviewStatus("Hoàn thành");
+                    }}
+                  >
+                    <option value="Đang xử lý">Đang xử lý</option>
+                    <option value="Chờ Admin phê duyệt">Chờ Admin phê duyệt</option>
+                    <option value="Đã xong">
+                      {currentUserRole === "CHUYEN_VIEN" ? "Hoàn tất (Trình Admin duyệt)" : "Đã xong"}
+                    </option>
+                    <option value="Quá hạn">Quá hạn</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kết quả rà soát</label>
+                  <select
+                    className="form-control"
+                    value={quickReviewStatus}
+                    onChange={(e) => setQuickReviewStatus(e.target.value)}
+                  >
+                    {REVIEW_STATUSES.map((rv) => (
+                      <option key={rv} value={rv}>
+                        {rv}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
               <div className="form-group">
-                <label className="form-label">Thời hạn gia hạn giải quyết (nếu có)</label>
+                <label className="form-label">Gia hạn giải quyết (nếu có)</label>
                 <input
                   type="date"
-                  className="form-control"
+                  className="form-control tabular-nums"
                   value={quickExtendedUntil}
                   onChange={(e) => setQuickExtendedUntil(e.target.value)}
                 />
               </div>
+
               <div className="form-group">
-                <label className="form-label">Văn bản trả lời (Số hiệu văn bản)</label>
+                <label className="form-label">Số hiệu văn bản trả lời</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Ví dụ: Số 12/UBND, Đang chờ Cty DVCI..."
+                  placeholder="Ví dụ: Số 12/UBND-VHXH"
                   value={quickReplyDocNumber}
                   onChange={(e) => setQuickReplyDocNumber(e.target.value)}
                 />
               </div>
+
+              <FileUpload
+                value={quickReplyDocLink}
+                onChange={setQuickReplyDocLink}
+                label="Văn bản trả lời đính kèm"
+              />
+
               <div className="form-group">
-                <FileUpload
-                  value={quickReplyDocLink}
-                  onChange={setQuickReplyDocLink}
-                  label="Văn bản kết quả trả lời (Tải tệp PDF, Word, Ảnh...)"
-                  placeholder="Tải lên tệp văn bản hoặc dán URL"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Ghi chú tiến độ (tùy chọn)</label>
+                <label className="form-label">Ghi chú tiến độ</label>
                 <textarea
                   className="form-control form-textarea"
                   rows={2}
-                  placeholder="Nhập ghi chú về tiến độ giải quyết..."
+                  placeholder="Ghi nhận tiến độ xử lý thực tế..."
                   value={quickNotes}
                   onChange={(e) => setQuickNotes(e.target.value)}
                 />
               </div>
-              <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+
+              <div style={{ display: "flex", gap: "0.65rem", justifyContent: "flex-end", marginTop: "0.4rem" }}>
                 <button
                   type="button"
                   onClick={() => setUpdatingId(null)}
-                  className="btn-neon-blue"
-                  style={{ flexGrow: 1 }}
+                  className="btn-secondary"
                   disabled={quickLoading}
                 >
-                  Hủy bỏ
+                  Hủy
                 </button>
                 <button
                   type="button"
                   onClick={handleQuickUpdate}
-                  className="btn-neon-blue"
-                  style={{ flexGrow: 2 }}
+                  className="btn-primary"
                   disabled={quickLoading}
                 >
-                  {quickLoading ? "Đang lưu..." : "Lưu tiến độ & Thông tin"}
+                  {quickLoading ? "Đang lưu..." : "Lưu cập nhật"}
                 </button>
               </div>
             </div>

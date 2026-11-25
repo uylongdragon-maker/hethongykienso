@@ -7,5 +7,6 @@ dist/
 skills-lock.json
 .next/
 out/
+tsconfig.tsbuildinfo
 
 /generated/prisma

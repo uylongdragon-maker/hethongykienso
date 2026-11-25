@@ -1,12 +1,17 @@
-/**
- * Tiện ích xử lý hiển thị và mở tệp tài liệu (PDF, Ảnh, Word, Google Drive...)
- * Hỗ trợ mở trực tiếp cả link web thông thường lẫn base64 data URL trên tất cả trình duyệt
- */
+import { isSafeUrl } from "@/lib/security";
 
+/**
+ * Tiện ích xử lý hiển thị và mở tệp tài liệu (PDF, Ảnh, Word, Google Drive, hoặc stream nội bộ)
+ * Kiểm duyệt giao thức an toàn chống XSS trước khi mở tab mới
+ */
 export function openDocumentViewer(url: string, title?: string) {
   if (!url) return;
 
-  // Nếu là base64 data URL (PDF, Ảnh...)
+  if (!isSafeUrl(url)) {
+    alert("Liên kết tài liệu không hợp lệ hoặc bị chặn vì lý do an toàn thông tin.");
+    return;
+  }
+
   if (url.startsWith("data:")) {
     try {
       const commaIdx = url.indexOf(",");
@@ -15,7 +20,6 @@ export function openDocumentViewer(url: string, title?: string) {
       const mimeMatch = meta.match(/:(.*?);/);
       const mimeType = mimeMatch ? mimeMatch[1] : "application/pdf";
 
-      // Chuyển Base64 sang binary Blob
       const binaryStr = atob(base64Data);
       const len = binaryStr.length;
       const bytes = new Uint8Array(len);
@@ -26,10 +30,8 @@ export function openDocumentViewer(url: string, title?: string) {
       const blob = new Blob([bytes], { type: mimeType });
       const blobUrl = URL.createObjectURL(blob);
 
-      // Mở trong tab mới
-      const newWin = window.open(blobUrl, "_blank");
+      const newWin = window.open(blobUrl, "_blank", "noopener,noreferrer");
       if (!newWin) {
-        // Nếu trình duyệt chặn popup, kích hoạt tải xuống
         const a = document.createElement("a");
         a.href = blobUrl;
         const ext = mimeType.includes("pdf") ? ".pdf" : mimeType.includes("image") ? ".png" : "";
@@ -39,20 +41,18 @@ export function openDocumentViewer(url: string, title?: string) {
         document.body.removeChild(a);
       }
 
-      // Thu hồi blob URL sau 2 phút để giải phóng bộ nhớ RAM
       setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
     } catch (err) {
       console.error("Lỗi khi mở tệp data URL:", err);
-      window.open(url, "_blank");
     }
-  } else {
-    // Link thông thường (Google Drive, OneDrive, URL máy chủ)
-    window.open(url, "_blank", "noopener,noreferrer");
+    return;
   }
+
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 /**
- * Nén ảnh trước khi lưu (giảm từ 5-10MB của camera điện thoại xuống ~300KB)
+ * Nén ảnh chụp từ điện thoại trước khi lưu (~200KB - 400KB)
  */
 export async function compressImageIfNeeded(file: File, maxDimension = 1600, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -94,9 +94,6 @@ export async function compressImageIfNeeded(file: File, maxDimension = 1600, qua
   });
 }
 
-/**
- * Đọc file thông thường sang Base64 Data URL
- */
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

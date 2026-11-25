@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { openDocumentViewer, compressImageIfNeeded, readFileAsDataUrl } from "@/lib/fileViewer";
+import { sanitizeAttachmentUrl } from "@/lib/security";
 
 interface FileUploadProps {
   name?: string;
@@ -10,6 +11,7 @@ interface FileUploadProps {
   onChange?: (url: string) => void;
   label?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export default function FileUpload({
@@ -18,7 +20,8 @@ export default function FileUpload({
   value,
   onChange,
   label,
-  placeholder = "Dán link Google Drive, OneDrive hoặc liên kết văn bản...",
+  placeholder = "Nhập liên kết Google Drive, OneDrive hoặc Cổng thông tin...",
+  disabled = false,
 }: FileUploadProps) {
   const [internalUrl, setInternalUrl] = useState<string>(
     value !== undefined ? value || "" : defaultValue || ""
@@ -31,12 +34,12 @@ export default function FileUpload({
 
   const currentUrl = value !== undefined ? value || "" : internalUrl;
 
-  const updateUrl = (newUrl: string, name?: string) => {
+  const updateUrl = (newUrl: string, uploadedName?: string) => {
     if (value === undefined) {
       setInternalUrl(newUrl);
     }
-    if (name) {
-      setFileName(name);
+    if (uploadedName) {
+      setFileName(uploadedName);
     }
     if (onChange) {
       onChange(newUrl);
@@ -45,41 +48,42 @@ export default function FileUpload({
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || disabled) return;
 
     setUploading(true);
     setError(null);
 
     try {
-      const isImage = file.type.startsWith("image/");
-      const MAX_SIZE = 3.5 * 1024 * 1024; // 3.5MB
+      const isImage = file.type.startsWith("image/") && file.type !== "image/svg+xml";
+      const MAX_SIZE = 3.5 * 1024 * 1024;
 
-      // Nếu là ảnh chụp từ điện thoại (thường 4-10MB), tự động nén kích thước
       if (isImage) {
-        let dataUrl: string;
-        if (file.size > 500 * 1024) {
-          // Nén ảnh về kích thước chuẩn và dung lượng nhẹ (~200KB - 400KB)
-          dataUrl = await compressImageIfNeeded(file, 1600, 0.8);
-        } else {
-          dataUrl = await readFileAsDataUrl(file);
+        const dataUrl =
+          file.size > 500 * 1024
+            ? await compressImageIfNeeded(file, 1600, 0.8)
+            : await readFileAsDataUrl(file);
+        const check = sanitizeAttachmentUrl(dataUrl);
+        if (!check.valid || !check.url) {
+          throw new Error(check.error || "Tệp ảnh không hợp lệ.");
         }
-        updateUrl(dataUrl, file.name);
+        updateUrl(check.url, file.name);
         return;
       }
 
-      // Đối với tài liệu (PDF, Word, Excel...)
       if (file.size > MAX_SIZE) {
         const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
         throw new Error(
-          `Tệp "${file.name}" có dung lượng ${sizeMB}MB (vượt quá 3.5MB cho phép tải trực tiếp). Vui lòng tải tệp lên Google Drive/OneDrive rồi chuyển sang tab "Dán liên kết" để gắn link.`
+          `Tệp "${file.name}" (${sizeMB}MB) vượt quá giới hạn 3.5MB tải trực tiếp. Vui lòng chuyển sang chế độ Dán liên kết Google Drive hoặc OneDrive.`
         );
       }
 
-      // Đọc file sang Base64 Data URL ngay trên trình duyệt (nhanh, an toàn, không phụ thuộc ổ cứng máy chủ)
       const dataUrl = await readFileAsDataUrl(file);
-      updateUrl(dataUrl, file.name);
+      const check = sanitizeAttachmentUrl(dataUrl);
+      if (!check.valid || !check.url) {
+        throw new Error(check.error || "Định dạng tệp không được hỗ trợ.");
+      }
+      updateUrl(check.url, file.name);
     } catch (err: any) {
-      console.error("Lỗi chọn tệp:", err);
       setError(err.message || "Không thể xử lý tệp được chọn.");
     } finally {
       setUploading(false);
@@ -89,169 +93,125 @@ export default function FileUpload({
     }
   };
 
+  const handleManualUrlChange = (raw: string) => {
+    setError(null);
+    updateUrl(raw);
+    if (raw.trim()) {
+      const check = sanitizeAttachmentUrl(raw);
+      if (!check.valid) {
+        setError(check.error || "Liên kết không hợp lệ.");
+      }
+    }
+  };
+
   const handleRemove = () => {
+    if (disabled) return;
     updateUrl("");
     setFileName("");
     setError(null);
   };
 
-  // Xác định tên hiển thị thân thiện cho tệp
   const getDisplayName = () => {
     if (fileName) return fileName;
     if (!currentUrl) return "";
+    if (currentUrl.startsWith("/api/petitions/")) return "Tài liệu đính kèm trên hệ thống";
     if (currentUrl.startsWith("data:")) {
-      if (currentUrl.includes("application/pdf")) return "Tài liệu đính kèm (PDF)";
-      if (currentUrl.includes("image/")) return "Ảnh đính kèm";
-      return "Tài liệu văn bản đã tải lên";
+      if (currentUrl.includes("application/pdf")) return "Văn bản PDF đính kèm";
+      if (currentUrl.includes("image/")) return "Hình ảnh đính kèm";
+      return "Tài liệu đính kèm";
     }
     if (currentUrl.includes("drive.google.com")) return "Tài liệu Google Drive";
     if (currentUrl.includes("onedrive") || currentUrl.includes("sharepoint")) return "Tài liệu OneDrive";
-    try {
-      const urlObj = new URL(currentUrl);
-      const pathname = urlObj.pathname;
-      const lastPart = pathname.split("/").filter(Boolean).pop();
-      return lastPart || currentUrl;
-    } catch {
-      return currentUrl.length > 40 ? currentUrl.slice(0, 37) + "..." : currentUrl;
-    }
+    return currentUrl.length > 48 ? currentUrl.slice(0, 45) + "..." : currentUrl;
   };
 
   return (
-    <div className="file-upload-widget" style={{ width: "100%" }}>
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
       {label && <label className="form-label">{label}</label>}
-
-      {/* Hidden input to pass value in standard form submit */}
       {name && <input type="hidden" name={name} value={currentUrl} />}
 
-      {/* Khi đã có tệp hoặc link */}
       {currentUrl ? (
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0.65rem 0.85rem",
-            backgroundColor: "#f0fdf4",
-            border: "1px solid #86efac",
-            borderRadius: "10px",
+            padding: "0.75rem 1rem",
+            backgroundColor: "var(--success-bg)",
+            borderRadius: "var(--radius-md)",
             gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", overflow: "hidden" }}>
-            <span style={{ fontSize: "1.3rem" }}>
-              {currentUrl.startsWith("data:image/") ? "🖼️" : currentUrl.startsWith("data:") ? "📄" : "🔗"}
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <div
-                style={{
-                  color: "#15803d",
-                  fontWeight: 700,
-                  fontSize: "0.85rem",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={fileName || currentUrl}
-              >
-                {getDisplayName()}
-              </div>
-              <span style={{ fontSize: "0.72rem", color: "#166534" }}>
-                {currentUrl.startsWith("data:") ? "Tệp đã lưu an toàn trong hệ thống" : "Đường dẫn liên kết văn bản"}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => openDocumentViewer(currentUrl, fileName || "van-ban")}
-              className="btn-neon-blue"
-              style={{
-                padding: "0.3rem 0.65rem",
-                fontSize: "0.75rem",
-                backgroundColor: "#16a34a",
-                borderColor: "#16a34a",
-                color: "#ffffff",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.25rem",
-              }}
-              title="Mở xem văn bản"
-            >
-              👁️ Mở xem
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (currentUrl.startsWith("data:")) {
-                  fileInputRef.current?.click();
-                } else {
-                  setMode("manual");
-                  handleRemove();
-                }
-              }}
-              className="btn-neon-blue"
-              style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
-              title="Đổi sang tệp hoặc link khác"
-            >
-              Đổi
-            </button>
-
-            <button
-              type="button"
-              onClick={handleRemove}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#ef4444",
-                cursor: "pointer",
-                padding: "0.3rem 0.5rem",
-                fontSize: "0.9rem",
-                fontWeight: 700,
-              }}
-              title="Xóa tệp này"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Box tải file / nhập link */
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          {/* Chuyển đổi giữa 2 chế độ: Tải tệp và Dán liên kết */}
-          <div
+          <span
             style={{
-              display: "flex",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              padding: "2px",
-              backgroundColor: "#f8fafc",
-              width: "fit-content",
+              color: "var(--success)",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
+            {getDisplayName()}
+          </span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+            <button
+              type="button"
+              onClick={() => openDocumentViewer(currentUrl, fileName || "tai-lieu")}
+              className="btn-primary"
+              style={{ padding: "0.35rem 0.75rem", fontSize: "0.76rem" }}
+            >
+              Mở tài liệu
+            </button>
+
+            {!disabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentUrl.startsWith("data:") || currentUrl.startsWith("/api/petitions/")) {
+                      fileInputRef.current?.click();
+                    } else {
+                      setMode("manual");
+                      handleRemove();
+                    }
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: "0.35rem 0.7rem", fontSize: "0.76rem" }}
+                >
+                  Đổi
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="btn-danger-tonal"
+                  style={{ padding: "0.35rem 0.65rem", fontSize: "0.76rem" }}
+                >
+                  Xóa
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : disabled ? (
+        <div style={{ fontSize: "0.84rem", color: "var(--text-muted)", padding: "0.4rem 0" }}>
+          Chưa có văn bản đính kèm
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
             <button
               type="button"
               onClick={() => {
                 setMode("upload");
                 setError(null);
               }}
-              style={{
-                padding: "0.3rem 0.75rem",
-                fontSize: "0.76rem",
-                fontWeight: mode === "upload" ? 700 : 500,
-                backgroundColor: mode === "upload" ? "#ffffff" : "transparent",
-                color: mode === "upload" ? "#2563eb" : "#64748b",
-                border: "none",
-                borderRadius: "6px",
-                boxShadow: mode === "upload" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-              }}
+              className={mode === "upload" ? "btn-primary" : "btn-secondary"}
+              style={{ padding: "0.35rem 0.8rem", fontSize: "0.76rem" }}
             >
-              📁 Tải tệp từ máy
+              Tải tệp từ máy
             </button>
             <button
               type="button"
@@ -259,123 +219,83 @@ export default function FileUpload({
                 setMode("manual");
                 setError(null);
               }}
-              style={{
-                padding: "0.3rem 0.75rem",
-                fontSize: "0.76rem",
-                fontWeight: mode === "manual" ? 700 : 500,
-                backgroundColor: mode === "manual" ? "#ffffff" : "transparent",
-                color: mode === "manual" ? "#2563eb" : "#64748b",
-                border: "none",
-                borderRadius: "6px",
-                boxShadow: mode === "manual" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-              }}
+              className={mode === "manual" ? "btn-primary" : "btn-secondary"}
+              style={{ padding: "0.35rem 0.8rem", fontSize: "0.76rem" }}
             >
-              🔗 Dán liên kết (Google Drive / OneDrive)
+              Dán liên kết
             </button>
           </div>
 
           {mode === "upload" ? (
-            <div>
-              <div
-                style={{
-                  border: "2px dashed #cbd5e1",
-                  borderRadius: "10px",
-                  padding: "0.85rem 1rem",
-                  textAlign: "center",
-                  backgroundColor: "#fafaf9",
-                  cursor: uploading ? "wait" : "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onClick={() => !uploading && fileInputRef.current?.click()}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2563eb" }}>
-                    {uploading ? "Đang xử lý tệp..." : "Bấm vào đây để chọn tệp (PDF, Word, Ảnh...)"}
-                  </span>
-                </div>
-                <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: "0.3rem" }}>
-                  Hỗ trợ định dạng PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Tải trực tiếp tối đa 3.5MB)
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className="btn-secondary"
+              style={{
+                padding: "0.95rem 1rem",
+                justifyContent: "center",
+                width: "100%",
+                fontWeight: 600,
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span>
+                {uploading ? "Đang xử lý tệp..." : "Chọn tệp PDF, Word, Excel hoặc Ảnh (tối đa 3.5MB)"}
+              </span>
+            </button>
           ) : (
-            <div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <input
-                  type="text"
-                  placeholder={placeholder}
-                  className="form-control"
-                  value={currentUrl}
-                  onChange={(e) => updateUrl(e.target.value)}
-                  style={{ fontSize: "0.82rem" }}
-                />
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "0.35rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                <span>💡</span>
-                <span>
-                  <strong>Khuyên dùng:</strong> Với văn bản scan nhiều trang hoặc tệp lớn, hãy tải lên Google Drive của đơn vị và dán link chia sẻ vào đây.
-                </span>
-              </div>
-            </div>
+            <input
+              type="url"
+              placeholder={placeholder}
+              className="form-control"
+              value={currentUrl}
+              onChange={(e) => handleManualUrlChange(e.target.value)}
+            />
           )}
         </div>
       )}
 
-      {/* Hidden real file input */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelect}
         accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp"
         style={{ display: "none" }}
+        disabled={disabled}
       />
 
       {error && (
         <div
           style={{
-            marginTop: "0.5rem",
-            padding: "0.6rem 0.8rem",
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: "8px",
-            color: "#b91c1c",
+            padding: "0.6rem 0.85rem",
+            backgroundColor: "var(--danger-bg)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--danger)",
             fontSize: "0.78rem",
-            lineHeight: 1.4,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
-            <span style={{ fontSize: "1rem", flexShrink: 0 }}>⚠️</span>
-            <div style={{ flex: 1 }}>{error}</div>
-          </div>
-          {error.includes("vượt quá 3.5MB") && (
+          <span>{error}</span>
+          {error.includes("3.5MB") && (
             <button
               type="button"
               onClick={() => {
                 setMode("manual");
                 setError(null);
               }}
-              style={{
-                marginTop: "0.4rem",
-                padding: "0.3rem 0.6rem",
-                backgroundColor: "#dc2626",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "5px",
-                fontSize: "0.74rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              className="btn-accent"
+              style={{ padding: "0.3rem 0.65rem", fontSize: "0.74rem" }}
             >
-              Chuyển sang dán liên kết Google Drive ➔
+              Chuyển sang dán liên kết
             </button>
           )}
         </div>

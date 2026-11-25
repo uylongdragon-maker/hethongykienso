@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { buildWorkflowUpdateData } from "@/lib/petitions";
 
-// 1. PUT: Cập nhật chi tiết kết quả xử lý kiến nghị (Có phân quyền Chuyên viên vs Admin)
+// 1. PUT: Cập nhật chi tiết kết quả xử lý kiến nghị (Áp dụng quy tắc phân quyền chuẩn)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,28 +17,22 @@ export async function PUT(
       );
     }
 
-    if (session.role === "CAN_BO") {
-      return NextResponse.json(
-        { success: false, error: "Tài khoản Lãnh đạo phường có quyền CHỈ XEM, không được phép chỉnh sửa dữ liệu." },
-        { status: 403 }
-      );
-    }
-
     const { id } = await params;
     const body = await req.json();
-    const {
-      status,
-      replyDocNumber,
-      replyDocDate,
-      replyDocLink,
-      extendedUntil,
-      reviewStatus,
-      notes,
-    } = body;
 
-    // Kiểm tra bản ghi tồn tại
     const existing = await prisma.petition.findUnique({
       where: { id },
+      select: {
+        id: true,
+        status: true,
+        reviewStatus: true,
+        replyDocNumber: true,
+        replyDocDate: true,
+        replyDocLink: true,
+        attachmentUrl: true,
+        extendedUntil: true,
+        notes: true,
+      },
     });
 
     if (!existing) {
@@ -47,47 +42,56 @@ export async function PUT(
       );
     }
 
-    let finalStatus = status || existing.status;
-    let finalReviewStatus = reviewStatus || existing.reviewStatus;
-    let systemNotes = notes !== undefined ? notes : existing.notes;
+    const result = buildWorkflowUpdateData({
+      existing,
+      session,
+      input: {
+        status: body.status,
+        reviewStatus: body.reviewStatus,
+        replyDocNumber: body.replyDocNumber,
+        replyDocDate: body.replyDocDate,
+        replyDocLink: body.replyDocLink,
+        attachmentUrl: body.attachmentUrl,
+        extendedUntil: body.extendedUntil,
+        notes: body.notes,
+        responsibleCommittee: body.responsibleCommittee,
+      },
+    });
 
-    // PHÂN QUYỀN VÀ TRÌNH DUYỆT:
-    // Nếu là CHUYEN_VIEN và gửi trạng thái "Đã xong" hoặc "Hoàn thành",
-    // Chuyên viên không được tự duyệt dứt điểm mà tự động đẩy request duyệt về Admin ("Chờ Admin phê duyệt")
-    if (session.role === "CHUYEN_VIEN") {
-      if (status === "Đã xong" || reviewStatus === "Hoàn thành") {
-        finalStatus = "Chờ Admin phê duyệt";
-        finalReviewStatus = "Mới giải quyết 1 phần";
-        systemNotes = `[Chuyên viên ${session.fullName} trình Admin phê duyệt kết quả]: ${notes || "Đã xử lý xong dự thảo trả lời"}`;
-      }
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: result.statusCode }
+      );
     }
 
-    // Cập nhật dữ liệu
     const updated = await prisma.petition.update({
       where: { id },
-      data: {
-        status: finalStatus,
-        replyDocNumber: replyDocNumber !== undefined ? replyDocNumber : existing.replyDocNumber,
-        replyDocDate: replyDocDate ? new Date(replyDocDate) : (replyDocDate === null ? null : existing.replyDocDate),
-        replyDocLink: replyDocLink !== undefined ? replyDocLink : existing.replyDocLink,
-        extendedUntil: extendedUntil ? new Date(extendedUntil) : (extendedUntil === null ? null : existing.extendedUntil),
-        reviewStatus: finalReviewStatus,
-        notes: systemNotes,
+      data: result.data,
+      select: {
+        id: true,
+        petitionCode: true,
+        status: true,
+        reviewStatus: true,
+        replyDocNumber: true,
+        replyDocDate: true,
+        extendedUntil: true,
+        notes: true,
+        updatedAt: true,
       },
     });
 
     return NextResponse.json({
       success: true,
       data: updated,
-      message:
-        session.role === "CHUYEN_VIEN" && (status === "Đã xong" || reviewStatus === "Hoàn thành")
-          ? "Đã gửi yêu cầu trình duyệt về Admin thành công!"
-          : "Cập nhật thông tin thành công.",
+      message: result.submittedForApproval
+        ? "Đã gửi hồ sơ trình Quản trị viên phê duyệt dứt điểm."
+        : "Đã cập nhật kết quả giải quyết thành công.",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Lỗi cập nhật vụ việc:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Không thể cập nhật vụ việc." },
+      { success: false, error: "Không thể cập nhật vụ việc." },
       { status: 500 }
     );
   }
@@ -95,7 +99,7 @@ export async function PUT(
 
 // 2. DELETE: Xóa vụ việc (CHỈ DÀNH CHO ADMIN)
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -107,12 +111,11 @@ export async function DELETE(
       );
     }
 
-    // CHUYÊN VIÊN KHÔNG ĐƯỢC XÓA DỮ LIỆU
     if (session.role !== "ADMIN") {
       return NextResponse.json(
         {
           success: false,
-          error: "Tài khoản Chuyên viên không có thẩm quyền xóa dữ liệu! Chỉ Quản trị viên (ADMIN) mới có quyền xóa.",
+          error: "Chỉ Quản trị viên mới có thẩm quyền xóa vụ việc.",
         },
         { status: 403 }
       );
@@ -122,6 +125,7 @@ export async function DELETE(
 
     const existing = await prisma.petition.findUnique({
       where: { id },
+      select: { id: true },
     });
 
     if (!existing) {
@@ -135,11 +139,14 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: "Đã xóa vụ việc thành công bởi Quản trị viên." });
-  } catch (error: any) {
+    return NextResponse.json({
+      success: true,
+      message: "Đã xóa vụ việc thành công.",
+    });
+  } catch (error) {
     console.error("Lỗi xóa vụ việc:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Không thể xóa vụ việc." },
+      { success: false, error: "Không thể xóa vụ việc." },
       { status: 500 }
     );
   }

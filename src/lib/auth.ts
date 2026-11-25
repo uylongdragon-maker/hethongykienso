@@ -1,24 +1,58 @@
 import crypto from "crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "hethongykienso_secret_key_2026_binhdong";
+const LEGACY_SALT = "binhdong_salt_2026";
 const TOKEN_NAME = "auth_token";
 
-// Mật khẩu băm chuẩn bằng SHA-256 + Salt
+export const VALID_USER_ROLES = ["ADMIN", "CHUYEN_VIEN", "CAN_BO"] as const;
+export type ValidUserRole = (typeof VALID_USER_ROLES)[number];
+
+export function isValidUserRole(role: unknown): role is ValidUserRole {
+  return typeof role === "string" && (VALID_USER_ROLES as readonly string[]).includes(role);
+}
+
+// Mật khẩu băm chuẩn bằng scrypt + salt ngẫu nhiên 128-bit
 export function hashPassword(password: string): string {
-  const salt = "binhdong_salt_2026";
-  return crypto.createHmac("sha256", salt).update(password).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt$${salt}$${derived}`;
+}
+
+export function isLegacyPasswordHash(storedHash: string): boolean {
+  return !storedHash.startsWith("scrypt$");
 }
 
 export function verifyPassword(password: string, storedHash: string): boolean {
-  return hashPassword(password) === storedHash;
+  try {
+    if (storedHash.startsWith("scrypt$")) {
+      const parts = storedHash.split("$");
+      if (parts.length !== 3) return false;
+      const [, salt, expectedHex] = parts;
+      const derived = crypto.scryptSync(password, salt, 64);
+      const expectedBuf = Buffer.from(expectedHex, "hex");
+      if (derived.length !== expectedBuf.length) return false;
+      return crypto.timingSafeEqual(derived, expectedBuf);
+    }
+
+    // Tương thích ngược với tài khoản cũ dùng HMAC-SHA256
+    const legacyHex = crypto.createHmac("sha256", LEGACY_SALT).update(password).digest("hex");
+    const a = Buffer.from(legacyHex, "utf8");
+    const b = Buffer.from(storedHash, "utf8");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
-// Tạo JWT Token nhẹ không cần thư viện ngoài
-export function signToken(payload: Record<string, any>, expiresInHours = 24): string {
+export function signToken(payload: Record<string, unknown>, expiresInHours = 24): string {
   const header = { alg: "HS256", typ: "JWT" };
-  const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
-  const fullPayload = { ...payload, exp };
+  const nowSec = Math.floor(Date.now() / 1000);
+  const exp = nowSec + expiresInHours * 3600;
+  const fullPayload = { ...payload, iat: nowSec, exp };
 
   const encodedHeader = Buffer.from(JSON.stringify(header)).toString("base64url");
   const encodedPayload = Buffer.from(JSON.stringify(fullPayload)).toString("base64url");
@@ -31,23 +65,33 @@ export function signToken(payload: Record<string, any>, expiresInHours = 24): st
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
-export function verifyToken<T = any>(token: string): T | null {
+export function verifyToken<T = Record<string, unknown>>(token: string): T | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
 
     const [encodedHeader, encodedPayload, signature] = parts;
+    if (!encodedHeader || !encodedPayload || !signature) return null;
+
+    const header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString("utf-8"));
+    if (!header || header.alg !== "HS256" || header.typ !== "JWT") {
+      return null;
+    }
+
     const expectedSignature = crypto
       .createHmac("sha256", JWT_SECRET)
       .update(`${encodedHeader}.${encodedPayload}`)
       .digest("base64url");
 
-    if (signature !== expectedSignature) return null;
+    const sigBuf = Buffer.from(signature, "utf8");
+    const expBuf = Buffer.from(expectedSignature, "utf8");
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
 
     const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8"));
-    
-    // Kiểm tra thời hạn token
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (!payload.exp || typeof payload.exp !== "number" || payload.exp < nowSec) {
       return null;
     }
 
@@ -61,17 +105,41 @@ export interface SessionUser {
   id: string;
   username: string;
   fullName: string;
-  role: "ADMIN" | "CHUYEN_VIEN" | "CAN_BO" | "NGUOI_DAN" | string;
+  role: "ADMIN" | "CHUYEN_VIEN" | "CAN_BO" | string;
   department?: string | null;
+  position?: string | null;
   administrativeUnitId?: string | null;
 }
 
-// Lấy thông tin session hiện tại từ HTTP Cookie
-export async function getSession(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(TOKEN_NAME)?.value;
-  if (!token) return null;
-  return verifyToken<SessionUser>(token);
-}
+// Xác thực token kết hợp đối chiếu tài khoản thực tế trong CSDL (được deduplicate trong mỗi request nhờ React cache)
+export const getSession = cache(async (): Promise<SessionUser | null> => {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(TOKEN_NAME)?.value;
+    if (!token) return null;
+
+    const decoded = verifyToken<SessionUser>(token);
+    if (!decoded || !decoded.id) return null;
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        role: true,
+        department: true,
+        position: true,
+        administrativeUnitId: true,
+      },
+    });
+
+    if (!dbUser) return null;
+
+    return dbUser;
+  } catch {
+    return null;
+  }
+});
 
 export { TOKEN_NAME };

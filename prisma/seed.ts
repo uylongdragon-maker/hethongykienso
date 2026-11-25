@@ -10,14 +10,14 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 function hashPassword(password: string): string {
-  const salt = "binhdong_salt_2026";
-  return crypto.createHmac("sha256", salt).update(password).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt$${salt}$${derived}`;
 }
 
 function sanitizeAddress(address: string): string {
   if (!address) return "";
-  let cleaned = address.replace(/khu\s*phố\s*23|kp\s*23/gi, "");
-  cleaned = cleaned.replace(/,\s*,/g, ",").replace(/^\s*,|,\s*$/g, "").trim();
+  let cleaned = address.replace(/,\s*,/g, ",").replace(/^\s*,|,\s*$/g, "").trim();
   cleaned = cleaned.replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "");
   cleaned = cleaned.replace(/(,\s*)?(phường\s*)?chánh\s*hưng/gi, "");
   cleaned = cleaned.replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "");

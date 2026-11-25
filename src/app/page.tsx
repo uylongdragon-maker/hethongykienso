@@ -1,31 +1,17 @@
-import { prisma } from "@/lib/db";
 import OverviewClient from "./OverviewClient";
+import { getSession } from "@/lib/auth";
+import { fetchSerializedPetitions } from "@/lib/petitions";
 
-// Đảm bảo trang luôn lấy dữ liệu mới nhất (không cache tĩnh)
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  // Lấy danh sách kiến nghị xếp theo ngày tiếp nhận mới nhất
-  const petitions = await prisma.petition.findMany({
-    orderBy: {
-      receivedDate: "desc",
-    },
-  });
+  const session = await getSession();
 
-  // Chuyển đổi DateTime sang dạng ISO string để gửi qua Client Component an toàn
-  const serializedPetitions = petitions.map((p) => ({
-    ...p,
-    receivedDate: p.receivedDate.toISOString(),
-    deadline: p.deadline.toISOString(),
-    extendedUntil: p.extendedUntil ? p.extendedUntil.toISOString() : null,
-    replyDocDate: p.replyDocDate ? p.replyDocDate.toISOString() : null,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-  }));
+  // Nếu chưa đăng nhập: không truy vấn & không lộ danh sách kiến nghị nội bộ ra phía trình duyệt công khai
+  if (!session) {
+    return <OverviewClient initialUser={null} initialPetitions={[]} />;
+  }
 
-  return (
-    <div>
-      <OverviewClient initialPetitions={serializedPetitions} />
-    </div>
-  );
+  const serializedPetitions = await fetchSerializedPetitions();
+  return <OverviewClient initialUser={session} initialPetitions={serializedPetitions} />;
 }

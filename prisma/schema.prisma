@@ -44,6 +44,13 @@ model Petition {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([receivedDate(sort: Desc)])
+  @@index([deadline])
+  @@index([department])
+  @@index([quarter])
+  @@index([category])
 }
 
 // Bảng Đơn vị Hành chính Việt Nam (vietnamese_administrative_units)

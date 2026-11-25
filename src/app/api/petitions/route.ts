@@ -1,103 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { CATEGORIES, SOURCES, AUTHORITIES, DEPARTMENTS } from "@/lib/constants";
+import { sanitizeAttachmentUrl } from "@/lib/security";
+import { sanitizeWardAddress, composeNotesWithCommittee } from "@/lib/petitionUtils";
+import { fetchSerializedPetitions, generateNextPetitionCode } from "@/lib/petitions";
 
-// Hàm chuẩn hóa địa chỉ về chuẩn Phường Bình Đông, TP. Hồ Chí Minh
-function sanitizeAddress(address: string): string {
-  if (!address) return "";
-
-  let cleaned = address
-    // Loại bỏ "Khu phố 23" hoặc "KP23" các biến thể
-    .replace(/khu\s*phố\s*23|kp\s*23/gi, "")
-    // Loại bỏ Phường Bình Đông / Chánh Hưng nếu đã có (tránh lặp đuôi)
-    .replace(/(,\s*)?(phường\s*)?bình\s*đông/gi, "")
-    .replace(/(,\s*)?(phường\s*)?chánh\s*hưng(\s*ward)?/gi, "")
-    // Loại bỏ tên thành phố nếu đã có
-    .replace(/(,\s*)?tp\.?\s*h(ồ|o)\s*ch(í|i)\s*minh/gi, "")
-    .replace(/(,\s*)?tp\.?\s*hcm/gi, "")
-    .replace(/(,\s*)?ho\s*chi\s*minh(\s*city)?/gi, "")
-    // Dọn dấu phẩy và khoảng trắng thừa
-    .replace(/,\s*,/g, ",")
-    .replace(/^\s*,|,\s*$/g, "")
-    .trim();
-
-  return `${cleaned}, Phường Bình Đông, TP. Hồ Chí Minh`;
-}
-
-// Hàm sinh mã vụ việc tiếp theo: [Prefix]YYYY-NNN
-async function generatePetitionCode(type: string): Promise<string> {
-  let prefix = "KN"; // Mặc định là Kiến nghị
-  if (type === "Giám sát") prefix = "GS";
-  if (type === "Khảo sát") prefix = "KS";
-
-  const currentYear = new Date().getFullYear();
-  const yearStr = currentYear.toString();
-
-  // Tìm vụ việc cùng tiền tố và năm có mã lớn nhất
-  const latest = await prisma.petition.findFirst({
-    where: {
-      petitionCode: {
-        startsWith: `${prefix}${yearStr}`,
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (!latest) {
-    return `${prefix}${yearStr}-001`;
-  }
-
-  // Phân tích mã cũ để tìm số tiếp theo (Ví dụ: KN2026-005)
-  const code = latest.petitionCode;
-  const dashIndex = code.indexOf("-");
-  if (dashIndex !== -1) {
-    const numPart = code.substring(dashIndex + 1);
-    const num = parseInt(numPart, 10);
-    if (!isNaN(num)) {
-      const nextNum = (num + 1).toString().padStart(3, "0");
-      return `${prefix}${yearStr}-${nextNum}`;
-    }
-  }
-
-  // Dự phòng nếu phân tích thất bại
-  const count = await prisma.petition.count({
-    where: {
-      petitionCode: {
-        startsWith: `${prefix}${yearStr}`,
-      },
-    },
-  });
-  const nextNum = (count + 1).toString().padStart(3, "0");
-  return `${prefix}${yearStr}-${nextNum}`;
-}
-
-// 1. GET: Lấy danh sách kiến nghị cử tri (đồng thời tự động chuyển trạng thái "Quá hạn")
+// 1. GET: Lấy danh sách kiến nghị cử tri (Yêu cầu xác thực cán bộ)
 export async function GET() {
   try {
-    const now = new Date();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Vui lòng đăng nhập để truy cập danh sách vụ việc." },
+        { status: 401 }
+      );
+    }
 
-    // Tự động quét và cập nhật trạng thái "Quá hạn" cho các vụ việc chưa hoàn thành quá deadline
-    await prisma.petition.updateMany({
-      where: {
-        status: { not: "Đã xong" },
-        deadline: { lt: now },
-      },
-      data: {
-        status: "Quá hạn",
-      },
-    });
-
-    // Lấy toàn bộ danh sách vụ việc
-    const petitions = await prisma.petition.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
+    const petitions = await fetchSerializedPetitions();
     return NextResponse.json({ success: true, data: petitions });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Lỗi lấy danh sách vụ việc:", error);
     return NextResponse.json(
       { success: false, error: "Không thể tải danh sách vụ việc." },
@@ -106,45 +28,51 @@ export async function GET() {
   }
 }
 
-// 2. POST: Tạo mới một kiến nghị vụ việc
+// 2. POST: Tiếp nhận kiến nghị mới (Chỉ ADMIN và CHUYEN_VIEN)
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (session && session.role === "CAN_BO") {
+    if (!session) {
       return NextResponse.json(
-        { success: false, error: "Tài khoản Lãnh đạo phường có quyền CHỈ XEM, không được phép tạo mới dữ liệu." },
+        { success: false, error: "Vui lòng đăng nhập để tiếp nhận vụ việc mới." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role === "CAN_BO") {
+      return NextResponse.json(
+        { success: false, error: "Tài khoản Lãnh đạo phường có quyền chỉ xem, không được phép tạo mới dữ liệu." },
         { status: 403 }
       );
     }
 
     const body = await req.json();
     const {
-      type, // "Kiến nghị", "Giám sát", "Khảo sát"
+      type,
       source,
       senderName,
       senderPhone,
       senderAddress,
       category,
-      incidentAddress, // Chứa địa chỉ nơi phản ánh & tọa độ GPS nếu có
+      incidentAddress,
       content,
       attachmentUrl,
       authority,
       department,
       receivedDate,
-      deadline, // Hạn giải quyết tự chọn
-      quarter,  // Khu phố tự chọn
-      responsibleCommittee, // Ban phụ trách HĐND
+      deadline,
+      quarter,
+      responsibleCommittee,
     } = body;
 
-    // Kiểm tra dữ liệu bắt buộc
     if (
       !type ||
       !source ||
-      !senderName ||
-      !senderAddress ||
+      !senderName?.trim() ||
+      !senderAddress?.trim() ||
       !category ||
-      !incidentAddress ||
-      !content ||
+      !incidentAddress?.trim() ||
+      !content?.trim() ||
       !authority ||
       !department ||
       !receivedDate
@@ -155,89 +83,109 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Danh mục lĩnh vực hợp lệ (21 lĩnh vực mới và các lĩnh vực cũ)
-    const validCategories = [
-      "Quy hoạch, quy hoạch đô thị, phát triển hạ tầng kỹ thuật và hạ tầng xã hội trên địa bàn",
-      "Kế hoạch, đầu tư",
-      "Tài chính",
-      "Ngân sách",
-      "Liên kết, hợp tác giữa các đơn vị hành chính",
-      "Đất đai",
-      "Tài nguyên, môi trường",
-      "Nông, lâm, ngư nghiệp",
-      "Công nghiệp",
-      "Thương mại, dịch vụ",
-      "Du lịch",
-      "Xây dựng và giao thông ở địa phương",
-      "Tổ chức bộ máy và xây dựng chính quyền",
-      "Giáo dục",
-      "Y tế",
-      "Văn hóa, xã hội",
-      "Thể dục, thể thao",
-      "Khoa học, công nghệ, thông tin",
-      "Đổi mới sáng tạo, chuyển đổi số",
-      "Quốc phòng, an ninh",
-      "Dân tộc và tôn giáo ở địa phương",
-      "Quản lý đô thị",
-      "Môi trường",
-      "An ninh trật tự",
-      "Chế độ chính sách"
-    ];
-    if (!validCategories.includes(category)) {
+    if (!["Kiến nghị", "Giám sát", "Khảo sát"].includes(type)) {
+      return NextResponse.json(
+        { success: false, error: "Loại vụ việc không hợp lệ." },
+        { status: 400 }
+      );
+    }
+
+    if (!CATEGORIES.includes(category)) {
       return NextResponse.json(
         { success: false, error: "Lĩnh vực phân loại không hợp lệ." },
         { status: 400 }
       );
     }
 
-    // Tự động sinh mã vụ việc
-    const petitionCode = await generatePetitionCode(type);
+    if (!SOURCES.includes(source)) {
+      return NextResponse.json(
+        { success: false, error: "Nguồn tiếp nhận không hợp lệ." },
+        { status: 400 }
+      );
+    }
 
-    // Tính toán thời hạn giải quyết: Sử dụng từ body (nếu có) hoặc mặc định Ngày tiếp nhận + 30 ngày
+    if (!AUTHORITIES.includes(authority) || !DEPARTMENTS.includes(department)) {
+      return NextResponse.json(
+        { success: false, error: "Thẩm quyền hoặc đơn vị xử lý không hợp lệ." },
+        { status: 400 }
+      );
+    }
+
+    const attachCheck = sanitizeAttachmentUrl(attachmentUrl);
+    if (!attachCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: attachCheck.error || "Tệp đính kèm không hợp lệ." },
+        { status: 400 }
+      );
+    }
+
     const received = new Date(receivedDate);
-    const finalDeadline = deadline ? new Date(deadline) : new Date(received.getTime() + 30 * 24 * 60 * 60 * 1000);
+    if (isNaN(received.getTime())) {
+      return NextResponse.json(
+        { success: false, error: "Ngày tiếp nhận không hợp lệ." },
+        { status: 400 }
+      );
+    }
 
-    // Chuẩn hóa địa chỉ liên hệ của người gửi
-    const sanitizedAddress = sanitizeAddress(senderAddress);
+    const finalDeadline = deadline
+      ? new Date(deadline)
+      : new Date(received.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    // Chuẩn hóa địa bàn nơi phản ánh (giữ tọa độ GPS nếu có, chuẩn hóa phần địa chỉ)
-    const sanitizedLocation = sanitizeAddress(incidentAddress);
+    if (isNaN(finalDeadline.getTime())) {
+      return NextResponse.json(
+        { success: false, error: "Thời hạn giải quyết không hợp lệ." },
+        { status: 400 }
+      );
+    }
 
-    // Trạng thái ban đầu
-    const initialStatus = "Đang xử lý";
+    const sanitizedAddress = sanitizeWardAddress(senderAddress);
+    const sanitizedLocation = sanitizeWardAddress(incidentAddress);
+    const notes = composeNotesWithCommittee(null, responsibleCommittee, null);
 
-    // Tạo bản ghi trong Database
-    const newPetition = await prisma.petition.create({
-      data: {
-        petitionCode,
-        source,
-        quarter: quarter || null,
-        senderName,
-        senderPhone: senderPhone || null,
-        senderAddress: sanitizedAddress,
-        category,
-        location: sanitizedLocation,
-        content,
-        attachmentUrl: attachmentUrl || null,
-        authority,
-        department,
-        receivedDate: received,
-        deadline: finalDeadline,
-        extendedUntil: null,
-        status: initialStatus,
-        replyDocNumber: null,
-        replyDocDate: null,
-        replyDocLink: null,
-        reviewStatus: "Chưa giải quyết",
-        notes: responsibleCommittee ? `[Ban phụ trách: ${responsibleCommittee}]` : null,
-      },
-    });
+    // Chống xung đột mã trùng khi tạo đồng thời (tối đa 3 lần thử)
+    let created = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const petitionCode = await generateNextPetitionCode(type);
+      try {
+        created = await prisma.petition.create({
+          data: {
+            petitionCode,
+            source,
+            quarter: quarter?.trim() || null,
+            senderName: senderName.trim(),
+            senderPhone: senderPhone?.trim() || null,
+            senderAddress: sanitizedAddress,
+            category,
+            location: sanitizedLocation,
+            content: content.trim(),
+            attachmentUrl: attachCheck.url,
+            authority,
+            department,
+            receivedDate: received,
+            deadline: finalDeadline,
+            extendedUntil: null,
+            status: "Đang xử lý",
+            replyDocNumber: null,
+            replyDocDate: null,
+            replyDocLink: null,
+            reviewStatus: "Chưa giải quyết",
+            notes,
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err?.code === "P2002" && attempt < 2) {
+          continue;
+        }
+        throw err;
+      }
+    }
 
-    return NextResponse.json({ success: true, data: newPetition }, { status: 201 });
+    return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error: any) {
     console.error("Lỗi tạo mới kiến nghị:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Không thể tạo mới kiến nghị." },
+      { success: false, error: "Không thể tạo mới kiến nghị." },
       { status: 500 }
     );
   }

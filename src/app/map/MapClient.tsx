@@ -1,33 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-interface SerializedPetition {
-  id: string;
-  petitionCode: string;
-  source: string;
-  quarter: string | null;
-  senderName: string;
-  senderAddress: string;
-  senderPhone: string | null;
-  category: string;
-  location: string;
-  content: string;
-  attachmentUrl: string | null;
-  authority: string;
-  department: string;
-  receivedDate: string;
-  deadline: string;
-  extendedUntil: string | null;
-  status: string;
-  replyDocNumber: string | null;
-  replyDocDate: string | null;
-  replyDocLink: string | null;
-  reviewStatus: string;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { escapeHtml } from "@/lib/security";
+import {
+  SerializedPetition,
+  formatDateVN,
+  isPetitionOverdue,
+} from "@/lib/petitionUtils";
 
 interface MapClientProps {
   initialPetitions: SerializedPetition[];
@@ -38,22 +18,18 @@ interface KpCenter {
   lat: number;
 }
 
-function isOverdue(pet: SerializedPetition): boolean {
-  return pet.status === "Quá hạn" || (pet.status !== "Đã xong" && new Date(pet.deadline) < new Date());
-}
-
 function getMarkerColor(pet: SerializedPetition): string {
-  if (isOverdue(pet)) return "#ef4444";
-  if (pet.status === "Đã xong") return "#10b981";
-  return "#f59e0b";
+  if (isPetitionOverdue(pet)) return "#dc2626";
+  if (pet.status === "Đã xong") return "#059669";
+  return "#d97706";
 }
 
 function getPolygonCentroid(coordinates: any): [number, number] {
   let totalLng = 0;
   let totalLat = 0;
   let count = 0;
-  
-  const ring = coordinates[0];
+
+  const ring = coordinates?.[0];
   if (Array.isArray(ring)) {
     ring.forEach((coord: any) => {
       if (Array.isArray(coord) && coord.length >= 2) {
@@ -63,7 +39,7 @@ function getPolygonCentroid(coordinates: any): [number, number] {
       }
     });
   }
-  
+
   if (count > 0) {
     return [totalLng / count, totalLat / count];
   }
@@ -77,27 +53,40 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [kpCenters, setKpCenters] = useState<{ [key: number]: KpCenter }>({});
-  
+
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
-  // Lấy chìa khóa API Goong từ file .env
-  const GOONG_MAP_KEY = process.env.NEXT_PUBLIC_GOONG_MAP_KEY || "wMcOxHb7uftjWS5GbIiOdTVmP2jwXOTPPHUof6oC";
-  const GOONG_API_KEY = process.env.NEXT_PUBLIC_GOONG_API_KEY || "KnX2ICwrz3dEAXpeNaCtyrpvdZo438CbBCQBxhEE";
+  const GOONG_MAP_KEY =
+    process.env.NEXT_PUBLIC_GOONG_MAP_KEY || "wMcOxHb7uftjWS5GbIiOdTVmP2jwXOTPPHUof6oC";
+  const GOONG_API_KEY =
+    process.env.NEXT_PUBLIC_GOONG_API_KEY || "KnX2ICwrz3dEAXpeNaCtyrpvdZo438CbBCQBxhEE";
 
-  const filteredPetitions = initialPetitions.filter((p) => {
-    if (filter === "OVERDUE") return isOverdue(p);
-    if (filter === "PENDING") return !isOverdue(p) && p.status !== "Đã xong";
-    if (filter === "DONE") return p.status === "Đã xong";
-    return true;
-  });
+  const stats = useMemo(() => {
+    let overdue = 0;
+    let pending = 0;
+    let done = 0;
+    initialPetitions.forEach((p) => {
+      if (p.status === "Đã xong") done++;
+      else if (isPetitionOverdue(p)) overdue++;
+      else pending++;
+    });
+    return {
+      total: initialPetitions.length,
+      overdue,
+      pending,
+      done,
+    };
+  }, [initialPetitions]);
 
-  const stats = {
-    total: initialPetitions.length,
-    overdue: initialPetitions.filter(isOverdue).length,
-    pending: initialPetitions.filter(p => !isOverdue(p) && p.status !== "Đã xong").length,
-    done: initialPetitions.filter(p => p.status === "Đã xong").length,
-  };
+  const filteredPetitions = useMemo(() => {
+    return initialPetitions.filter((p) => {
+      if (filter === "OVERDUE") return isPetitionOverdue(p);
+      if (filter === "PENDING") return !isPetitionOverdue(p) && p.status !== "Đã xong";
+      if (filter === "DONE") return p.status === "Đã xong";
+      return true;
+    });
+  }, [initialPetitions, filter]);
 
   const getCoords = (pet: SerializedPetition): [number, number] => {
     if (pet.location) {
@@ -110,7 +99,7 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
         }
       }
     }
-    
+
     if (pet.quarter) {
       const match = pet.quarter.match(/(?:Khu\s*phố|Khu\s*pho|KP)\s*(\d+)/i);
       if (match) {
@@ -122,10 +111,8 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
             hash = pet.id.charCodeAt(i) + ((hash << 5) - hash);
           }
           const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
-          const radius = 0.0006 + (Math.abs(hash >> 2) % 1000) / 1000 * 0.0012;
-          const lng = center.lng + Math.cos(angle) * radius;
-          const lat = center.lat + Math.sin(angle) * radius;
-          return [lng, lat];
+          const radius = 0.0006 + ((Math.abs(hash >> 2) % 1000) / 1000) * 0.0012;
+          return [center.lng + Math.cos(angle) * radius, center.lat + Math.sin(angle) * radius];
         }
       }
     }
@@ -142,7 +129,6 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // 1. Tải stylesheet từ CDN
     const linkId = "goong-map-css-cdn";
     if (!document.getElementById(linkId)) {
       const link = document.createElement("link");
@@ -152,11 +138,10 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
       document.head.appendChild(link);
     }
 
-    // 2. Tải Goong Map JS SDK từ CDN
     const initMap = () => {
       const goongjs = (window as any).goongjs;
       if (!goongjs || !mapRef.current) {
-        setError("Không thể tải thư viện Goong Map JS SDK từ CDN.");
+        setError("Không thể tải thư viện Goong Map JS SDK.");
         return;
       }
 
@@ -176,7 +161,6 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
         map.addControl(new goongjs.NavigationControl(), "top-right");
 
         map.on("load", () => {
-          // Nạp ranh giới GeoJSON 30 Khu phố Phường Bình Đông
           fetch("/geojson/BD%20BINHDONG.geojson")
             .then((r) => {
               if (!r.ok) throw new Error("Fetch GeoJSON failed");
@@ -187,10 +171,10 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
 
               if (geojson && Array.isArray(geojson.features)) {
                 geojson.features = geojson.features.map((feature: any) => {
-                  const name = feature.properties.name || "";
+                  const name = feature.properties?.name || "";
                   const kpNum = parseInt(name.replace(/\D/g, ""), 10);
-                  
-                  if (!isNaN(kpNum) && feature.geometry && feature.geometry.coordinates) {
+
+                  if (!isNaN(kpNum) && feature.geometry?.coordinates) {
                     const [cLng, cLat] = getPolygonCentroid(feature.geometry.coordinates);
                     centers[kpNum] = { lng: cLng, lat: cLat };
                   }
@@ -202,27 +186,27 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
                   });
 
                   const kpTotal = kpPetitions.length;
-                  const kpOverdue = kpPetitions.filter(isOverdue).length;
+                  const kpOverdue = kpPetitions.filter((p) => isPetitionOverdue(p)).length;
                   const kpCompleted = kpPetitions.filter((p) => p.status === "Đã xong").length;
                   const kpPending = kpTotal - kpCompleted;
 
-                  let fillColor = "rgba(156, 163, 175, 0.15)";
-                  let strokeColor = "rgba(156, 163, 175, 0.4)";
+                  let fillColor = "rgba(156, 163, 175, 0.14)";
+                  let strokeColor = "rgba(107, 114, 128, 0.35)";
                   let fillOpacity = 0.12;
 
                   if (kpTotal > 0) {
                     if (kpOverdue > 0) {
-                      fillColor = "#ef4444";
-                      strokeColor = "#dc2626";
-                      fillOpacity = 0.28;
+                      fillColor = "#dc2626";
+                      strokeColor = "#b91c1c";
+                      fillOpacity = 0.25;
                     } else if (kpPending > 0) {
-                      fillColor = "#f59e0b";
-                      strokeColor = "#d97706";
-                      fillOpacity = 0.22;
+                      fillColor = "#d97706";
+                      strokeColor = "#b45309";
+                      fillOpacity = 0.2;
                     } else {
-                      fillColor = "#10b981";
-                      strokeColor = "#059669";
-                      fillOpacity = 0.22;
+                      fillColor = "#059669";
+                      strokeColor = "#047857";
+                      fillOpacity = 0.2;
                     }
                   }
 
@@ -234,7 +218,7 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
                     kpTotal,
                     kpOverdue,
                     kpCompleted,
-                    kpPending
+                    kpPending,
                   };
 
                   return feature;
@@ -251,8 +235,8 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
                 source: "ward-boundary",
                 paint: {
                   "fill-color": ["get", "fillColor"],
-                  "fill-opacity": ["get", "fillOpacity"]
-                }
+                  "fill-opacity": ["get", "fillOpacity"],
+                },
               });
 
               map.addLayer({
@@ -261,56 +245,48 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
                 source: "ward-boundary",
                 paint: {
                   "line-color": ["get", "strokeColor"],
-                  "line-width": 2.5,
-                  "line-opacity": 0.7
-                }
+                  "line-width": 2,
+                  "line-opacity": 0.65,
+                },
               });
 
               map.on("click", "ward-fill", (e: any) => {
-                const props = e.features[0].properties;
-                const name = props.name || "Khu phố";
-                const total = props.kpTotal || 0;
-                const completed = props.kpCompleted || 0;
-                const pending = props.kpPending || 0;
-                const overdue = props.kpOverdue || 0;
+                const props = e.features?.[0]?.properties || {};
+                const title = escapeHtml(props.description || props.name || "Khu phố");
+                const total = Number(props.kpTotal || 0);
+                const completed = Number(props.kpCompleted || 0);
+                const pending = Number(props.kpPending || 0);
+                const overdue = Number(props.kpOverdue || 0);
 
                 new goongjs.Popup()
                   .setLngLat(e.lngLat)
                   .setHTML(`
-                    <div style="font-family: var(--font-sans); padding: 0.35rem; font-size: 0.8rem; color: #1f2937; min-width: 150px;">
-                      <strong style="font-size: 0.85rem; display: block; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-bottom: 0.35rem;">
-                        ${props.description || name}
-                      </strong>
-                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0;">
-                        <span>Tổng số vụ:</span><strong>${total}</strong>
-                      </div>
-                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #059669;">
-                        <span>Đã xong:</span><strong>${completed}</strong>
-                      </div>
-                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #d97706;">
-                        <span>Đang xử lý:</span><strong>${pending}</strong>
-                      </div>
-                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #dc2626;">
-                        <span>Quá hạn:</span><strong>${overdue}</strong>
-                      </div>
+                    <div style="font-family: var(--font-sans); padding: 0.4rem; font-size: 0.8rem; color: #121316; min-width: 150px;">
+                      <strong style="font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">${title}</strong>
+                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0;"><span>Tổng số:</span><strong>${total}</strong></div>
+                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #059669;"><span>Đã xong:</span><strong>${completed}</strong></div>
+                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #d97706;"><span>Đang xử lý:</span><strong>${pending}</strong></div>
+                      <div style="display: flex; justify-content: space-between; margin: 0.15rem 0; color: #dc2626;"><span>Quá hạn:</span><strong>${overdue}</strong></div>
                     </div>
                   `)
                   .addTo(map);
               });
 
-              map.on("mouseenter", "ward-fill", () => { map.getCanvas().style.cursor = "pointer"; });
-              map.on("mouseleave", "ward-fill", () => { map.getCanvas().style.cursor = ""; });
+              map.on("mouseenter", "ward-fill", () => {
+                map.getCanvas().style.cursor = "pointer";
+              });
+              map.on("mouseleave", "ward-fill", () => {
+                map.getCanvas().style.cursor = "";
+              });
 
               setMapLoaded(true);
             })
-            .catch((err) => {
-              console.error("Lỗi nạp file GeoJSON Ranh giới Phường Bình Đông:", err);
+            .catch(() => {
               setMapLoaded(true);
             });
         });
-      } catch (err: any) {
-        console.error("Lỗi khởi tạo bản đồ Goong:", err);
-        setError("Không thể khởi tạo bản đồ Goong Map: Kiểm tra khóa API trong .env.");
+      } catch {
+        setError("Không thể khởi tạo bản đồ Goong Map.");
       }
     };
 
@@ -338,7 +314,7 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
         mapInstanceRef.current = null;
       }
     };
-  }, [GOONG_MAP_KEY, GOONG_API_KEY]);
+  }, [GOONG_MAP_KEY, GOONG_API_KEY, initialPetitions]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -353,18 +329,26 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
       const color = getMarkerColor(pet);
 
       const el = document.createElement("div");
-      el.className = isOverdue(pet) ? "goong-custom-marker marker-overdue" : pet.status === "Đã xong" ? "goong-custom-marker marker-completed" : "goong-custom-marker marker-in-progress";
+      el.className = isPetitionOverdue(pet)
+        ? "goong-custom-marker marker-overdue"
+        : pet.status === "Đã xong"
+        ? "goong-custom-marker marker-completed"
+        : "goong-custom-marker marker-in-progress";
 
       el.addEventListener("click", () => setSelectedPetition(pet));
 
+      const safeCode = escapeHtml(pet.petitionCode);
+      const safeSender = escapeHtml(pet.senderName);
+      const snippet = pet.content.length > 75 ? pet.content.slice(0, 75) + "..." : pet.content;
+      const safeSnippet = escapeHtml(snippet);
+      const safeLoc = escapeHtml(pet.quarter || pet.location);
+
       const popupHTML = `
-        <div style="font-family: var(--font-sans), sans-serif; padding: 0.35rem; font-size: 0.8rem; color: #191918; max-width: 220px;">
-          <strong style="color: ${color}; display: block; margin-bottom: 0.25rem;">[${pet.petitionCode}]</strong>
-          <div style="font-weight: 700; margin-bottom: 0.2rem;">Người gửi: ${pet.senderName}</div>
-          <div style="color: #555550; font-size: 0.75rem; margin-bottom: 0.35rem; line-height: 1.3;">
-            Nội dung: ${pet.content.substring(0, 70)}${pet.content.length > 70 ? "..." : ""}
-          </div>
-          <div style="font-size: 0.72rem; color: #888880;">📍 ${pet.quarter || pet.location}</div>
+        <div style="font-family: var(--font-sans), sans-serif; padding: 0.35rem; font-size: 0.8rem; color: #121316; max-width: 220px;">
+          <strong style="color: ${color}; display: block; margin-bottom: 0.25rem;">${safeCode}</strong>
+          <div style="font-weight: 700; margin-bottom: 0.2rem;">${safeSender}</div>
+          <div style="color: #4b5563; font-size: 0.76rem; margin-bottom: 0.3rem; line-height: 1.35;">${safeSnippet}</div>
+          <div style="font-size: 0.72rem; color: #787d87; font-weight: 600;">${safeLoc}</div>
         </div>
       `;
 
@@ -377,138 +361,161 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
 
       markersRef.current.push(marker);
     });
-  }, [mapLoaded, filter, filteredPetitions, kpCenters]);
+  }, [mapLoaded, filteredPetitions, kpCenters]);
 
   return (
     <div className="page-content">
-      {/* Header */}
-      <div className="page-header" style={{ marginBottom: "1.5rem" }}>
+      <div className="page-header">
         <div>
-          <h1 className="page-title">Bản đồ số vụ việc Phường Bình Đông</h1>
-          <p className="page-subtitle">Giám sát vị trí không gian địa hình 3D và tiến độ xử lý kiến nghị cử tri</p>
+          <h1 className="page-title">Bản đồ số vụ việc phường Bình Đông</h1>
+          <p className="page-subtitle">
+            Phân bố không gian 30 khu phố và điểm phản ánh kiến nghị cử tri
+          </p>
         </div>
       </div>
 
-      {/* Thống kê nhanh */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-        {[
-          { label: "Tổng vụ việc", value: stats.total, color: "var(--text-primary)", bg: "rgba(255,255,255,0.7)" },
-          { label: "Vụ việc quá hạn", value: stats.overdue, color: "#ef4444", bg: "rgba(239,68,68,0.06)" },
-          { label: "Đang xử lý", value: stats.pending, color: "#f59e0b", bg: "rgba(245,158,11,0.06)" },
-          { label: "Đã hoàn thành", value: stats.done, color: "#10b981", bg: "rgba(16,185,129,0.06)" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className="glass-card" style={{ padding: "1.25rem", background: bg }}>
-            <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "0.25rem" }}>{label}</div>
-            <div style={{ fontSize: "1.85rem", fontWeight: 800, color }}>{value}</div>
+      {/* Chỉ số trên không gian mở */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: "1.75rem",
+          marginBottom: "1.75rem",
+        }}
+      >
+        <div>
+          <div className="tabular-nums" style={{ fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", lineHeight: 1.05 }}>
+            {stats.total}
           </div>
-        ))}
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+            Tổng vụ việc
+          </div>
+        </div>
+        <div>
+          <div className="tabular-nums" style={{ fontSize: "2.25rem", fontWeight: 800, color: "var(--danger)", lineHeight: 1.05 }}>
+            {stats.overdue}
+          </div>
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+            Quá hạn
+          </div>
+        </div>
+        <div>
+          <div className="tabular-nums" style={{ fontSize: "2.25rem", fontWeight: 800, color: "var(--warning)", lineHeight: 1.05 }}>
+            {stats.pending}
+          </div>
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+            Đang xử lý
+          </div>
+        </div>
+        <div>
+          <div className="tabular-nums" style={{ fontSize: "2.25rem", fontWeight: 800, color: "var(--success)", lineHeight: 1.05 }}>
+            {stats.done}
+          </div>
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+            Đã hoàn thành
+          </div>
+        </div>
       </div>
 
-      {/* Bộ lọc */}
+      {/* Bộ lọc trạng thái */}
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
         {([
-          ["ALL", "Tất cả vụ việc"],
-          ["OVERDUE", "Vụ việc quá hạn"],
-          ["PENDING", "Đang xử lý"],
-          ["DONE", "Đã hoàn thành"],
-        ] as [string, string][]).map(([val, label]) => (
+          ["ALL", `Tất cả (${stats.total})`],
+          ["OVERDUE", `Quá hạn (${stats.overdue})`],
+          ["PENDING", `Đang xử lý (${stats.pending})`],
+          ["DONE", `Đã hoàn thành (${stats.done})`],
+        ] as [typeof filter, string][]).map(([val, label]) => (
           <button
             key={val}
-            onClick={() => setFilter(val as any)}
-            className="btn"
-            style={{
-              padding: "0.45rem 1.1rem",
-              borderRadius: 10,
-              border: "1px solid",
-              borderColor: filter === val ? "var(--text-primary)" : "rgba(0,0,0,0.08)",
-              background: filter === val ? "var(--text-primary)" : "rgba(255,255,255,0.85)",
-              color: filter === val ? "#fff" : "var(--text-secondary)",
-              fontSize: "0.825rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            type="button"
+            onClick={() => setFilter(val)}
+            className={filter === val ? "btn-primary" : "btn-secondary"}
+            style={{ padding: "0.45rem 1rem", fontSize: "0.8rem" }}
           >
             {label}
-            {val !== "ALL" && (
-              <span style={{ marginLeft: "0.35rem", opacity: 0.8 }}>
-                ({val === "OVERDUE" ? stats.overdue : val === "PENDING" ? stats.pending : stats.done})
-              </span>
-            )}
           </button>
         ))}
       </div>
 
-      {/* Bản đồ */}
-      <div className="glass-card" style={{ overflow: "hidden", position: "relative", minHeight: "560px", border: "1px solid var(--border-color)", borderRadius: "16px" }}>
+      {/* Khung hiển thị bản đồ 3D */}
+      <div
+        style={{
+          overflow: "hidden",
+          position: "relative",
+          minHeight: "560px",
+          borderRadius: "var(--radius-xl)",
+          backgroundColor: "#e5e7eb",
+        }}
+      >
         {error ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "560px", padding: "2rem", backgroundColor: "#fff1f2", color: "#9f1239", textAlign: "center" }}>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: "0.5rem" }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <strong style={{ fontSize: "1rem" }}>Không thể kết nối Goong Map</strong>
-            <span style={{ fontSize: "0.85rem", marginTop: "0.25rem", opacity: 0.9 }}>{error}</span>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "560px",
+              padding: "2rem",
+              color: "var(--danger)",
+              textAlign: "center",
+            }}
+          >
+            <strong style={{ fontSize: "1rem" }}>Không thể kết nối bản đồ Goong Map</strong>
+            <span style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>{error}</span>
           </div>
         ) : (
           <>
             <div ref={mapRef} style={{ width: "100%", height: "560px" }} />
-            
             {!mapLoaded && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", zIndex: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: "700" }}>
-                  <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                  Đang nạp bản đồ địa hình Goong Map 3D...
-                </div>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(246, 247, 249, 0.88)",
+                  zIndex: 10,
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                }}
+              >
+                Đang tải dữ liệu bản đồ Phường Bình Đông...
               </div>
             )}
-
-            {/* Thẻ chú thích */}
-            <div style={{
-              position: "absolute", bottom: 20, left: 20, zIndex: 10,
-              background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(12px)",
-              borderRadius: 12,
-              padding: "0.75rem 1rem",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-              border: "1px solid rgba(0,0,0,0.06)",
-              fontSize: "0.75rem",
-            }}>
-              <div style={{ fontWeight: 800, color: "#191918", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-                Chú thích bản đồ
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#ef4444", border: "2px solid white" }} />
-                  <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Quá hạn (Nhấp nháy đỏ)</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#f59e0b", border: "2px solid white" }} />
-                  <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Đang xử lý</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#10b981", border: "2px solid white" }} />
-                  <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Đã hoàn thành</span>
-                </div>
-              </div>
-            </div>
           </>
         )}
       </div>
 
-      {/* Detail Popup Modal */}
       {selectedPetition && (
         <div className="modal-overlay" onClick={() => setSelectedPetition(null)}>
-          <div className="modal-content glass-card" style={{ maxWidth: 540, width: "90%", padding: "1.75rem" }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-content"
+            style={{ maxWidth: "520px", padding: "1.75rem" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <strong style={{ fontSize: "1.1rem", color: "#6366f1" }}>[{selectedPetition.petitionCode}]</strong>
-              <button className="modal-close" onClick={() => setSelectedPetition(null)}>&times;</button>
+              <strong style={{ fontSize: "1.1rem", fontFamily: "var(--font-mono)" }}>
+                {selectedPetition.petitionCode}
+              </strong>
+              <button className="modal-close" onClick={() => setSelectedPetition(null)}>
+                &times;
+              </button>
             </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", fontSize: "0.85rem" }}>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem", fontSize: "0.86rem" }}>
               <div><strong>Người gửi:</strong> {selectedPetition.senderName}</div>
-              <div><strong>Địa chỉ cử tri:</strong> {selectedPetition.senderAddress}</div>
+              <div><strong>Khu phố:</strong> {selectedPetition.quarter || "Chưa xác định"}</div>
               <div><strong>Lĩnh vực:</strong> {selectedPetition.category}</div>
               <div><strong>Đơn vị xử lý:</strong> {selectedPetition.department}</div>
-              <div><strong>Khu phố:</strong> {selectedPetition.quarter || "—"}</div>
+              <div><strong>Hạn giải quyết:</strong> {formatDateVN(selectedPetition.extendedUntil || selectedPetition.deadline)}</div>
               <div><strong>Nội dung:</strong> {selectedPetition.content}</div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.25rem" }}>
+              <Link href={`/petitions/${selectedPetition.id}`} className="btn-primary">
+                Mở chi tiết hồ sơ
+              </Link>
             </div>
           </div>
         </div>

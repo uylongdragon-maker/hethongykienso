@@ -1,24 +1,17 @@
-import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import MapClient from "./MapClient";
+import { getSession } from "@/lib/auth";
+import { fetchSerializedPetitions } from "@/lib/petitions";
 
 export const revalidate = 0;
 
 export default async function MapPage() {
-  const petitions = await prisma.petition.findMany({
-    orderBy: {
-      receivedDate: "desc",
-    },
-  });
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
 
-  const serializedPetitions = petitions.map((p) => ({
-    ...p,
-    receivedDate: p.receivedDate.toISOString(),
-    deadline: p.deadline.toISOString(),
-    extendedUntil: p.extendedUntil ? p.extendedUntil.toISOString() : null,
-    replyDocDate: p.replyDocDate ? p.replyDocDate.toISOString() : null,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-  }));
+  const serializedPetitions = await fetchSerializedPetitions();
 
   return <MapClient initialPetitions={serializedPetitions} />;
 }

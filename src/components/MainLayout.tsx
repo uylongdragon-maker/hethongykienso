@@ -1,90 +1,30 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { gsap } from "gsap";
-import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(useGSAP);
+import { SessionUser } from "@/lib/auth";
+import { getRoleDisplayName } from "@/lib/petitionUtils";
 
 interface MainLayoutProps {
   children: React.ReactNode;
+  initialUser: SessionUser | null;
 }
 
-interface UserSession {
-  id: string;
-  username: string;
-  fullName: string;
-  role: "ADMIN" | "CHUYEN_VIEN" | "CAN_BO" | "NGUOI_DAN" | string;
-  department?: string;
-  unitName?: string;
-}
-
-export default function MainLayout({ children }: MainLayoutProps) {
+export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState<UserSession | null>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<SessionUser | null>(initialUser);
   const pathname = usePathname();
   const router = useRouter();
 
-  const sidebarRef = useRef<HTMLElement>(null);
-  const navItemsRef = useRef<HTMLUListElement>(null);
-
-  // Fetch current user session
   useEffect(() => {
-    async function checkUser() {
-      try {
-        const res = await fetch("/api/auth/me");
-        const data = await res.json();
-        if (data.authenticated && data.user) {
-          setUser(data.user);
-        } else {
-          setUser(null);
-        }
-      } catch {
-        setUser(null);
-      } finally {
-        setLoadingUser(false);
-      }
-    }
-    checkUser();
+    setUser(initialUser);
+  }, [initialUser]);
+
+  useEffect(() => {
+    setMobileOpen(false);
   }, [pathname]);
-
-  // Animate sidebar nav links on mount
-  useGSAP(() => {
-    if (navItemsRef.current && pathname !== "/login") {
-      gsap.from(navItemsRef.current.querySelectorAll(".nav-link"), {
-        opacity: 0,
-        x: -16,
-        duration: 0.4,
-        stagger: 0.07,
-        ease: "power3.out",
-        clearProps: "transform,opacity",
-        delay: 0.1,
-      });
-    }
-  }, { scope: sidebarRef, dependencies: [pathname] });
-
-  // Animate sidebar expand/collapse
-  useEffect(() => {
-    if (sidebarRef.current && pathname !== "/login") {
-      if (collapsed) {
-        gsap.to(sidebarRef.current, {
-          opacity: 0,
-          x: -20,
-          duration: 0.25,
-          ease: "power2.in",
-        });
-      } else {
-        gsap.fromTo(
-          sidebarRef.current,
-          { opacity: 0, x: -20 },
-          { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }
-        );
-      }
-    }
-  }, [collapsed, pathname]);
 
   const handleLogout = async () => {
     try {
@@ -97,17 +37,41 @@ export default function MainLayout({ children }: MainLayoutProps) {
     }
   };
 
-  // If on login route, render standalone children
   if (pathname === "/login") {
     return <>{children}</>;
   }
 
-  const baseNavItems = [
+  // Khi chưa đăng nhập (Cổng tra cứu công khai): hiển thị không gian mở, ẩn thanh điều hướng nội bộ
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
+        <header className="main-header">
+          <Link
+            href="/"
+            style={{
+              fontSize: "0.85rem",
+              fontWeight: 800,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
+          </Link>
+          <Link href="/login" className="btn-primary">
+            Đăng nhập cán bộ
+          </Link>
+        </header>
+        <main style={{ flex: 1 }}>{children}</main>
+      </div>
+    );
+  }
+
+  const navItems = [
     {
       href: "/",
-      label: "Tổng quan vụ việc",
+      label: "Tổng quan",
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="9" />
           <rect x="14" y="3" width="7" height="5" />
           <rect x="14" y="12" width="7" height="9" />
@@ -117,14 +81,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
     },
     {
       href: "/petitions",
-      label: "Sổ theo dõi & Giám sát",
+      label: "Sổ theo dõi vụ việc",
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
           <line x1="16" y1="13" x2="8" y2="13" />
           <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
         </svg>
       ),
     },
@@ -132,7 +95,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       href: "/reports",
       label: "Báo cáo hiệu suất",
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="20" x2="18" y2="10" />
           <line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
@@ -143,165 +106,74 @@ export default function MainLayout({ children }: MainLayoutProps) {
       href: "/map",
       label: "Bản đồ vụ việc",
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
           <line x1="9" y1="3" x2="9" y2="18" />
           <line x1="15" y1="6" x2="15" y2="21" />
         </svg>
       ),
     },
+    {
+      href: "/users",
+      label: user.role === "ADMIN" ? "Quản lý tài khoản" : "Hồ sơ cá nhân",
+      icon: (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
   ];
-
-  // If Admin, add User Management nav item
-  const navItems = user?.role === "ADMIN"
-    ? [
-        ...baseNavItems,
-        {
-          href: "/users",
-          label: "Quản lý tài khoản",
-          icon: (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          ),
-        },
-      ]
-    : baseNavItems;
-
-  const getRoleLabel = (role?: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "Quản trị hệ thống";
-      case "CHUYEN_VIEN":
-        return "Chuyên viên xử lý hồ sơ";
-      case "CAN_BO":
-        return "Lãnh đạo phường (Chỉ xem)";
-      case "NGUOI_DAN":
-        return "Cử tri công dân";
-      default:
-        return "Người dùng";
-    }
-  };
 
   return (
     <div className={`app-container ${collapsed ? "sidebar-collapsed" : ""}`}>
-      {/* Floating show button when collapsed */}
-      {collapsed && (
-        <button
-          onClick={() => setCollapsed(false)}
-          style={{
-            position: "fixed",
-            left: "1rem",
-            top: "1rem",
-            zIndex: 999,
-            backgroundColor: "rgba(255,255,255,0.85)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(0,0,0,0.08)",
-            borderRadius: "10px",
-            padding: "0.5rem 0.85rem",
-            cursor: "pointer",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.85rem",
-            fontWeight: "600",
-            color: "var(--text-primary)",
-            transition: "all 0.2s ease",
-          }}
-          title="Hiện thanh menu"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="18" x2="20" y2="18" />
-          </svg>
-          <span>Menu</span>
-        </button>
-      )}
+      <div
+        className={`mobile-menu-backdrop ${mobileOpen ? "open" : ""}`}
+        onClick={() => setMobileOpen(false)}
+      />
 
-      {/* Sidebar */}
-      <aside
-        ref={sidebarRef}
-        className="sidebar"
-        style={{
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-        }}
-      >
-        {/* Logo + collapse button */}
+      <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
         <div
-          className="logo-container"
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
+            alignItems: "flex-start",
+            gap: "0.75rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", overflow: "hidden" }}>
-            <div
-              className="logo-icon"
-              style={{ borderRadius: "8px", background: "#1d1d1f", width: "30px", height: "30px", flexShrink: 0 }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem", overflow: "hidden" }} title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông">
-              <span className="logo-text" style={{ fontSize: "0.68rem", lineHeight: "1.25", fontWeight: 800, whiteSpace: "nowrap", letterSpacing: "-0.02em" }}>
-                KIẾN NGHỊ CỬ TRI
-              </span>
-              <span style={{ fontSize: "0.54rem", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
-                HĐND PHƯỜNG BÌNH ĐÔNG
-              </span>
-            </div>
-          </div>
+          <Link
+            href="/"
+            title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông"
+            style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}
+          >
+            <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+              KIẾN NGHỊ CỬ TRI
+            </span>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+              HĐND Phường Bình Đông
+            </span>
+          </Link>
 
           <button
-            onClick={() => setCollapsed(true)}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "0.3rem",
-              color: "var(--text-muted)",
-              display: "flex",
-              alignItems: "center",
-              borderRadius: "6px",
-              transition: "background 0.15s ease",
+            type="button"
+            onClick={() => {
+              setCollapsed(true);
+              setMobileOpen(false);
             }}
-            title="Ẩn thanh menu"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.05)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            className="btn-secondary"
+            style={{ padding: "0.35rem", borderRadius: "8px" }}
+            title="Thu gọn thanh điều hướng"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
         </div>
 
-        {/* Nav section label */}
-        <div style={{
-          fontSize: "0.65rem",
-          fontWeight: "700",
-          letterSpacing: "0.08em",
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          paddingLeft: "0.95rem",
-          marginBottom: "0.4rem",
-          marginTop: "0.5rem",
-        }}>
-          Điều hướng
-        </div>
-
         <nav>
-          <ul className="nav-menu" ref={navItemsRef}>
+          <ul className="nav-menu">
             {navItems.map((item) => {
               const isActive =
                 item.href === "/"
@@ -312,140 +184,74 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   <Link
                     href={item.href}
                     className={`nav-link${isActive ? " active" : ""}`}
-                    style={{
-                      position: "relative",
-                      ...(isActive
-                        ? {
-                            background: "rgba(0,0,0,0.06)",
-                            color: "var(--text-primary)",
-                          }
-                        : {}),
-                    }}
                   >
-                    {isActive && (
-                      <span style={{
-                        position: "absolute",
-                        left: 0,
-                        top: "25%",
-                        height: "50%",
-                        width: "3px",
-                        background: "var(--text-primary)",
-                        borderRadius: "0 4px 4px 0",
-                      }} />
-                    )}
-                    <span style={{
-                      display: "flex",
-                      alignItems: "center",
-                      opacity: isActive ? 1 : 0.65,
-                      transition: "opacity 0.2s ease",
-                    }}>
-                      {item.icon}
-                    </span>
-                    <span className="nav-text">{item.label}</span>
+                    {item.icon}
+                    <span>{item.label}</span>
                   </Link>
                 </li>
               );
             })}
           </ul>
         </nav>
-
-        {/* Sidebar footer */}
-        <div className="sidebar-footer" style={{ marginTop: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            <span style={{
-              display: "inline-block",
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              background: "#34c759",
-            }} />
-            <span>Hệ thống đang hoạt động</span>
-          </div>
-        </div>
       </aside>
 
-      {/* Main content */}
       <main className="main-content">
-        <header
-          className="main-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0.6rem 2.75rem",
-            background: "rgba(245, 245, 247, 0.88)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderBottom: "1px solid rgba(0,0,0,0.05)",
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <span
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                backgroundColor: "#00f0ff",
-                boxShadow: "0 0 8px #00f0ff",
+        <header className="main-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.innerWidth <= 1024) {
+                  setMobileOpen((prev) => !prev);
+                } else {
+                  setCollapsed((prev) => !prev);
+                }
               }}
-            />
-            <span
-              style={{
-                fontSize: "0.78rem",
-                color: "#121316",
-                fontWeight: "800",
-                letterSpacing: "-0.01em",
-              }}
-              title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông"
+              className="btn-secondary"
+              style={{ padding: "0.45rem 0.65rem" }}
+              title="Bật hoặc tắt menu điều hướng"
             >
-              KIẾN NGHỊ CỬ TRI <span style={{ color: "#6b7280", fontWeight: 600 }}>• HĐND P. BÌNH ĐÔNG</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
+              </svg>
+            </button>
+
+            <span
+              style={{
+                fontSize: "0.82rem",
+                color: "var(--text-primary)",
+                fontWeight: 700,
+              }}
+            >
+              Hệ thống theo dõi giải quyết kiến nghị cử tri HĐND phường Bình Đông
             </span>
           </div>
 
-          {/* User Status / Login Pill Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            {user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                  <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                    {user.fullName}
-                  </span>
-                  <span style={{ fontSize: "0.62rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                    {getRoleLabel(user.role)} {user.department ? `• ${user.department}` : ""}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="led-glow-btn-light"
-                  style={{
-                    padding: "0.35rem 0.75rem",
-                    fontSize: "0.74rem",
-                  }}
-                  title="Đăng xuất khỏi tài khoản"
-                >
-                  Đăng xuất
-                </button>
-              </div>
-            ) : !loadingUser ? (
-              <a
-                href="/login"
-                className="led-glow-btn-light"
-                style={{
-                  backgroundColor: "#121316",
-                  color: "#ffffff",
-                  padding: "0.45rem 0.95rem",
-                  fontSize: "0.78rem",
-                  textDecoration: "none",
-                }}
-              >
-                Đăng nhập Cán bộ
-              </a>
-            ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <Link
+              href="/users"
+              style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}
+            >
+              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                {user.fullName}
+              </span>
+              <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                {getRoleDisplayName(user.role)}
+              </span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="btn-secondary"
+              style={{ padding: "0.45rem 0.85rem", fontSize: "0.78rem" }}
+            >
+              Đăng xuất
+            </button>
           </div>
         </header>
+
         {children}
       </main>
     </div>

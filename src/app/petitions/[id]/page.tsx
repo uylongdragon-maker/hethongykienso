@@ -1,8 +1,10 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
 import { updatePetitionResolution } from "./actions";
 import FileUpload from "@/components/FileUpload";
 import { getSession } from "@/lib/auth";
+import { extractCommitteeFromNotes } from "@/lib/petitionUtils";
 import {
   CATEGORIES,
   SOURCES,
@@ -21,29 +23,61 @@ interface PageProps {
 
 export default async function PetitionDetailPage({ params }: PageProps) {
   const session = await getSession();
-  const isReadOnly = session?.role === "CAN_BO";
+  if (!session) {
+    redirect("/login");
+  }
+
+  const isReadOnly = session.role === "CAN_BO";
   const { id } = await params;
 
-  // Lấy chi tiết vụ việc
   const petition = await prisma.petition.findUnique({
     where: { id },
+    select: {
+      id: true,
+      petitionCode: true,
+      source: true,
+      quarter: true,
+      senderName: true,
+      senderAddress: true,
+      senderPhone: true,
+      category: true,
+      location: true,
+      content: true,
+      authority: true,
+      department: true,
+      receivedDate: true,
+      deadline: true,
+      extendedUntil: true,
+      status: true,
+      replyDocNumber: true,
+      replyDocDate: true,
+      reviewStatus: true,
+      notes: true,
+      attachmentUrl: true,
+      replyDocLink: true,
+    },
   });
 
   if (!petition) {
     notFound();
   }
 
-  // Trích xuất ngày định dạng YYYY-MM-DD để đưa vào input date
+  const safeAttachmentUrl = petition.attachmentUrl?.startsWith("data:")
+    ? `/api/petitions/${petition.id}/document?field=attachmentUrl`
+    : petition.attachmentUrl;
+
+  const safeReplyDocLink = petition.replyDocLink?.startsWith("data:")
+    ? `/api/petitions/${petition.id}/document?field=replyDocLink`
+    : petition.replyDocLink;
+
   const toInputDateFormat = (date: Date | null) => {
     if (!date) return "";
     return date.toISOString().split("T")[0];
   };
 
-  // Ràng buộc id cho Server Action
   const updatePetitionWithId = updatePetitionResolution.bind(null, id);
 
-  // Đảm bảo giá trị hiện tại luôn có trong danh sách lựa chọn (dù là dữ liệu cũ hoặc tùy chỉnh)
-  const currentCategory = petition.category || "Quản lý đô thị";
+  const currentCategory = petition.category || CATEGORIES[0];
   const allCategories = CATEGORIES.includes(currentCategory)
     ? CATEGORIES
     : [currentCategory, ...CATEGORIES];
@@ -63,86 +97,84 @@ export default async function PetitionDetailPage({ params }: PageProps) {
     ? AUTHORITIES
     : [currentAuthority, ...AUTHORITIES];
 
-  const committeeMatch = petition.notes?.match(/\[Ban phụ trách:\s*([^\]]+)\]/);
-  const currentCommittee = committeeMatch ? committeeMatch[1] : RESPONSIBLE_COMMITTEES[0];
+  const { committee, cleanNotes } = extractCommitteeFromNotes(petition.notes);
+  const currentCommittee = committee || RESPONSIBLE_COMMITTEES[0];
 
   return (
-    <div>
-      <a href="/petitions" className="back-link">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
+    <div className="page-content">
+      <Link href="/petitions" className="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <polyline points="15 18 9 12 15 6" />
         </svg>
-        Quay lại danh sách vụ việc
-      </a>
+        Quay lại sổ theo dõi
+      </Link>
 
-      <div className="page-header" style={{ marginBottom: "2rem" }}>
+      <div className="page-header">
         <div>
-          <h1 className="page-title">
-            {isReadOnly ? `Chi tiết hồ sơ vụ việc ${petition.petitionCode}` : `Cập nhật kết quả giải quyết ${petition.petitionCode}`}
-          </h1>
+          <h1 className="page-title">Hồ sơ vụ việc {petition.petitionCode}</h1>
           <p className="page-subtitle">
             {isReadOnly
-              ? "Xem thông tin kiến nghị, tiến độ xử lý và văn bản trả lời cử tri (Chế độ xem của Lãnh đạo)"
-              : "Cập nhật văn bản trả lời, tiến độ giải quyết và ý kiến rà soát"}
+              ? "Chế độ xem thông tin hồ sơ dành cho Lãnh đạo phường"
+              : session.role === "CHUYEN_VIEN"
+              ? "Cập nhật nội dung xử lý và trình Quản trị viên phê duyệt kết quả"
+              : "Cập nhật và phê duyệt kết quả giải quyết kiến nghị cử tri"}
           </p>
         </div>
       </div>
 
       <form action={updatePetitionWithId}>
         <div className="grid-layout-details">
-          {/* Cột trái: Thông tin tổng quan vụ việc */}
-          <section className="glass-card detail-card" style={{ padding: "2rem" }}>
-            <h3 className="detail-section-title" style={{ marginTop: 0 }}>
-              {isReadOnly ? "Thông tin tiếp nhận kiến nghị" : "Thông tin chi tiết tiếp nhận (Chỉnh sửa)"}
-            </h3>
+          {/* Vùng trái: Thông tin tiếp nhận */}
+          <section style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <h2 style={{ fontSize: "1.15rem", fontWeight: 800 }}>Thông tin tiếp nhận kiến nghị</h2>
 
-            <div style={{ display: "grid", gap: "1.25rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Người kiến nghị / Phản ánh</label>
+                <label className="form-label">Họ tên cử tri</label>
                 <input
                   type="text"
                   name="senderName"
                   defaultValue={petition.senderName}
                   className="form-control"
+                  disabled={isReadOnly}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Số điện thoại liên hệ</label>
+                <label className="form-label">Số điện thoại</label>
                 <input
                   type="text"
                   name="senderPhone"
                   defaultValue={petition.senderPhone || ""}
-                  className="form-control"
-                  placeholder="Không bắt buộc"
+                  className="form-control tabular-nums"
+                  disabled={isReadOnly}
                 />
               </div>
+            </div>
 
-              <div className="form-group">
-                <label className="form-label">Địa chỉ người gửi</label>
-                <input
-                  type="text"
-                  name="senderAddress"
-                  defaultValue={petition.senderAddress}
-                  className="form-control"
-                  required
-                />
-              </div>
+            <div className="form-group">
+              <label className="form-label">Địa chỉ liên hệ</label>
+              <input
+                type="text"
+                name="senderAddress"
+                defaultValue={petition.senderAddress}
+                className="form-control"
+                disabled={isReadOnly}
+                required
+              />
+            </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
                 <label className="form-label">Nguồn tiếp nhận</label>
-                <select name="source" defaultValue={currentSource} className="form-control" required>
+                <select
+                  name="source"
+                  defaultValue={currentSource}
+                  className="form-control"
+                  disabled={isReadOnly}
+                  required
+                >
                   {allSources.map((src) => (
                     <option key={src} value={src}>
                       {src}
@@ -151,42 +183,54 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                 </select>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="form-group">
-                  <label className="form-label">Lĩnh vực phản ánh</label>
-                  <select name="category" defaultValue={currentCategory} className="form-control" required>
-                    {allCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Khu phố</label>
-                  <select name="quarter" defaultValue={petition.quarter || "Khu phố 01"} className="form-control" required>
-                    {Array.from({ length: 30 }, (_, i) => {
-                      const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
-                      return <option key={kp} value={kp}>{kp}</option>;
-                    })}
-                  </select>
-                </div>
-              </div>
-
               <div className="form-group">
-                <label className="form-label">Đơn vị xử lý trực tiếp</label>
-                <select name="department" defaultValue={currentDept} className="form-control" required>
-                  {allDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
+                <label className="form-label">Khu phố</label>
+                <select
+                  name="quarter"
+                  defaultValue={petition.quarter || "Khu phố 01"}
+                  className="form-control"
+                  disabled={isReadOnly}
+                  required
+                >
+                  {Array.from({ length: 30 }, (_, i) => {
+                    const kp = `Khu phố ${(i + 1).toString().padStart(2, "0")}`;
+                    return (
+                      <option key={kp} value={kp}>
+                        {kp}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
+            </div>
 
+            <div className="form-group">
+              <label className="form-label">Lĩnh vực phản ánh</label>
+              <select
+                name="category"
+                defaultValue={currentCategory}
+                className="form-control"
+                disabled={isReadOnly}
+                required
+              >
+                {allCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
                 <label className="form-label">Thẩm quyền xử lý</label>
-                <select name="authority" defaultValue={currentAuthority} className="form-control" required>
+                <select
+                  name="authority"
+                  defaultValue={currentAuthority}
+                  className="form-control"
+                  disabled={isReadOnly}
+                  required
+                >
                   {allAuthorities.map((auth) => (
                     <option key={auth} value={auth}>
                       {auth}
@@ -196,8 +240,14 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Ban phụ trách (HĐND phường)</label>
-                <select name="responsibleCommittee" defaultValue={currentCommittee} className="form-control" required>
+                <label className="form-label">Ban HĐND phụ trách</label>
+                <select
+                  name="responsibleCommittee"
+                  defaultValue={currentCommittee}
+                  className="form-control"
+                  disabled={isReadOnly}
+                  required
+                >
                   {RESPONSIBLE_COMMITTEES.map((comm) => (
                     <option key={comm} value={comm}>
                       {comm}
@@ -205,122 +255,113 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div className="form-group">
+              <label className="form-label">Đơn vị xử lý trực tiếp</label>
+              <select
+                name="department"
+                defaultValue={currentDept}
+                className="form-control"
+                disabled={isReadOnly}
+                required
+              >
+                {allDepartments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Địa bàn phản ánh (GPS)</label>
+              <input
+                type="text"
+                name="location"
+                defaultValue={petition.location}
+                className="form-control"
+                disabled={isReadOnly}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Nội dung kiến nghị cử tri</label>
+              <textarea
+                name="content"
+                defaultValue={petition.content}
+                rows={4}
+                className="form-control form-textarea"
+                disabled={isReadOnly}
+                required
+              />
+            </div>
+
+            <FileUpload
+              name="attachmentUrl"
+              defaultValue={safeAttachmentUrl}
+              label="Tài liệu đính kèm ban đầu"
+              disabled={isReadOnly}
+            />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Địa bàn phản ánh (GPS)</label>
+                <label className="form-label">Ngày tiếp nhận</label>
                 <input
-                  type="text"
-                  name="location"
-                  defaultValue={petition.location}
-                  className="form-control"
+                  type="date"
+                  name="receivedDate"
+                  defaultValue={toInputDateFormat(petition.receivedDate)}
+                  className="form-control tabular-nums"
+                  disabled={isReadOnly}
                   required
                 />
               </div>
-
-              <div className="form-group" style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
-                <label className="form-label">Tóm tắt nội dung kiến nghị</label>
-                <textarea
-                  name="content"
-                  defaultValue={petition.content}
-                  rows={4}
-                  className="form-control form-textarea"
-                  required
-                />
-              </div>
-
               <div className="form-group">
-                <label className="form-label">Tài liệu đính kèm ban đầu (nếu có)</label>
-                <FileUpload
-                  name="attachmentUrl"
-                  defaultValue={petition.attachmentUrl}
-                  placeholder="Tải lên tệp đính kèm hoặc nhập URL"
+                <label className="form-label">Hạn giải quyết</label>
+                <input
+                  type="date"
+                  name="deadline"
+                  defaultValue={toInputDateFormat(petition.deadline)}
+                  className="form-control tabular-nums"
+                  disabled={isReadOnly}
+                  required
                 />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
-                <div className="form-group">
-                  <label className="form-label">Ngày tiếp nhận</label>
-                  <input
-                    type="date"
-                    name="receivedDate"
-                    defaultValue={toInputDateFormat(petition.receivedDate)}
-                    className="form-control"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Hạn giải quyết</label>
-                  <input
-                    type="date"
-                    name="deadline"
-                    defaultValue={toInputDateFormat(petition.deadline)}
-                    className="form-control"
-                    required
-                  />
-                </div>
               </div>
             </div>
           </section>
 
-          {/* Cột phải: Form cập nhật thông tin giải quyết & rà soát */}
-          <section className="glass-card detail-card" style={{ padding: "2rem" }}>
-            <h3 className="detail-section-title" style={{ marginTop: 0 }}>
-              Kết quả giải quyết & Ý kiến rà soát
-            </h3>
+          {/* Vùng phải: Kết quả giải quyết & rà soát */}
+          <section style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <h2 style={{ fontSize: "1.15rem", fontWeight: 800 }}>Kết quả giải quyết & ý kiến rà soát</h2>
 
-            <div style={{ display: "grid", gap: "1.25rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Trạng thái giải quyết vụ việc</label>
+                <label className="form-label">Trạng thái xử lý</label>
                 <select
                   name="status"
                   defaultValue={petition.status}
                   className="form-control"
+                  disabled={isReadOnly}
                   required
                 >
                   {STATUSES.map((st) => (
                     <option key={st} value={st}>
-                      {st}
+                      {session.role === "CHUYEN_VIEN" && st === "Đã xong"
+                        ? "Hoàn tất (Trình Admin duyệt)"
+                        : st}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Thời hạn gia hạn giải quyết (nếu có)</label>
-                <input
-                  type="date"
-                  name="extendedUntil"
-                  defaultValue={toInputDateFormat(petition.extendedUntil)}
-                  className="form-control"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Văn bản trả lời (Số hiệu văn bản)</label>
-                <input
-                  type="text"
-                  name="replyDocNumber"
-                  defaultValue={petition.replyDocNumber || ""}
-                  placeholder="Ví dụ: Số 12/UBND, Đang chờ Cty DVCI..."
-                  className="form-control"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Văn bản kết quả trả lời (Tải file hoặc dán link)</label>
-                <FileUpload
-                  name="replyDocLink"
-                  defaultValue={petition.replyDocLink}
-                  placeholder="Tải lên tệp văn bản trả lời (PDF, Word, Ảnh...)"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Kết quả rà soát (Rà soát lại kết quả)</label>
+                <label className="form-label">Kết quả rà soát</label>
                 <select
                   name="reviewStatus"
                   defaultValue={petition.reviewStatus}
                   className="form-control"
+                  disabled={isReadOnly}
                   required
                 >
                   {REVIEW_STATUSES.map((rv) => (
@@ -330,34 +371,78 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Ghi chú bổ sung</label>
-                <textarea
-                  name="notes"
-                  defaultValue={petition.notes || ""}
-                  placeholder="Ví dụ: Đã nhắc lần 2, đúng hạn..."
-                  className="form-control form-textarea"
-                  rows={4}
+                <label className="form-label">Gia hạn giải quyết (nếu có)</label>
+                <input
+                  type="date"
+                  name="extendedUntil"
+                  defaultValue={toInputDateFormat(petition.extendedUntil)}
+                  className="form-control tabular-nums"
+                  disabled={isReadOnly}
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-                {isReadOnly ? (
-                  <a href="/petitions" className="btn-neon-blue" style={{ width: "100%", textAlign: "center" }}>
-                    ← Quay lại danh sách vụ việc
-                  </a>
-                ) : (
-                  <>
-                    <a href="/petitions" className="btn-neon-blue" style={{ flexGrow: 1, textAlign: "center" }}>
-                      Hủy bỏ
-                    </a>
-                    <button type="submit" className="btn-neon-blue" style={{ flexGrow: 2 }}>
-                      Lưu thay đổi
-                    </button>
-                  </>
-                )}
+              <div className="form-group">
+                <label className="form-label">Ngày ban hành văn bản trả lời</label>
+                <input
+                  type="date"
+                  name="replyDocDate"
+                  defaultValue={toInputDateFormat(petition.replyDocDate)}
+                  className="form-control tabular-nums"
+                  disabled={isReadOnly}
+                />
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Số hiệu văn bản trả lời</label>
+              <input
+                type="text"
+                name="replyDocNumber"
+                defaultValue={petition.replyDocNumber || ""}
+                placeholder="Ví dụ: Số 12/UBND-VHXH"
+                className="form-control"
+                disabled={isReadOnly}
+              />
+            </div>
+
+            <FileUpload
+              name="replyDocLink"
+              defaultValue={safeReplyDocLink}
+              label="Văn bản kết quả trả lời"
+              disabled={isReadOnly}
+            />
+
+            <div className="form-group">
+              <label className="form-label">Ghi chú rà soát & tiến độ</label>
+              <textarea
+                name="notes"
+                defaultValue={cleanNotes}
+                placeholder="Ghi chú tiến độ xử lý hoặc ý kiến rà soát của Ban HĐND..."
+                className="form-control form-textarea"
+                rows={5}
+                disabled={isReadOnly}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+              {isReadOnly ? (
+                <Link href="/petitions" className="btn-secondary">
+                  Quay lại danh sách
+                </Link>
+              ) : (
+                <>
+                  <Link href="/petitions" className="btn-secondary">
+                    Hủy
+                  </Link>
+                  <button type="submit" className="btn-primary" style={{ flex: 1 }}>
+                    {session.role === "CHUYEN_VIEN" ? "Lưu & cập nhật hồ sơ" : "Lưu kết quả & phê duyệt"}
+                  </button>
+                </>
+              )}
             </div>
           </section>
         </div>

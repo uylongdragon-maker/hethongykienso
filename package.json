@@ -1,30 +1,24 @@
 {
   "name": "hethongykienso",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.1.0",
+  "description": "Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "seed": "prisma db seed",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
-    "seed": "ts-node-esm prisma/seed.ts"
+    "seed": "ts-node --esm prisma/seed.ts"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/uylongdragon-maker/hethongykienso.git"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
   "type": "module",
-  "bugs": {
-    "url": "https://github.com/uylongdragon-maker/hethongykienso/issues"
-  },
-  "homepage": "https://github.com/uylongdragon-maker/hethongykienso#readme",
   "devDependencies": {
     "@types/node": "^26.0.1",
     "@types/pg": "^8.20.0",
@@ -35,15 +29,16 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@gsap/react": "^2.1.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@tailwindcss/postcss": "^4.3.2",
-    "gsap": "^3.15.0",
     "next": "^16.2.9",
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.2"
+  },
+  "overrides": {
+    "effect": "^3.22.5"
   }
 }
