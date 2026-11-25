@@ -91,7 +91,7 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: "100dvh",
-        backgroundColor: "#121316",
+        background: "linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%)",
         color: "#ffffff",
         display: "flex",
         alignItems: "center",
@@ -101,35 +101,43 @@ export default function LoginPage() {
         className="login-grid"
         style={{
           width: "100%",
-          maxWidth: "1280px",
+          maxWidth: "1260px",
           margin: "0 auto",
           padding: "3rem 2.5rem",
           display: "grid",
-          gridTemplateColumns: "1.25fr 0.85fr",
+          gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.85fr)",
           gap: "4.5rem",
           alignItems: "center",
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              color: "#dc2626",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginBottom: "1.25rem",
-            }}
-          >
-            Hội đồng nhân dân phường Bình Đông
+          <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1.5rem" }}>
+            <svg width="44" height="44" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+              <circle cx="18" cy="18" r="18" fill="#7F1D1D" />
+              <polygon
+                points="18,6 21.1,14.1 29.8,14.4 22.9,19.7 25.3,28 18,23.1 10.7,28 13.1,19.7 6.2,14.4 14.9,14.1"
+                fill="#FACC15"
+              />
+            </svg>
+            <span
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 800,
+                color: "#FDE047",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              Hội đồng nhân dân phường Bình Đông
+            </span>
           </div>
 
           <h1
             style={{
               fontSize: "clamp(1.85rem, 3.1vw, 2.75rem)",
               fontWeight: 800,
-              lineHeight: 1.22,
-              letterSpacing: "-0.025em",
+              lineHeight: 1.24,
+              letterSpacing: "-0.02em",
               color: "#ffffff",
               marginBottom: "1.5rem",
             }}
@@ -140,13 +148,13 @@ export default function LoginPage() {
           <p
             style={{
               fontSize: "1rem",
-              color: "rgba(255, 255, 255, 0.68)",
+              color: "rgba(255, 255, 255, 0.85)",
               lineHeight: 1.65,
               maxWidth: "580px",
               marginBottom: "2rem",
             }}
           >
-            Không gian làm việc trực tuyến phục vụ Thường trực HĐND, các Ban HĐND, UBND và các phòng chuyên môn phường Bình Đông.
+            Cổng quản trị và giám sát tiến độ xử lý dành cho Thường trực HĐND, các Ban HĐND, UBND và các phòng chuyên môn phường Bình Đông.
           </p>
 
           <Link
@@ -155,25 +163,37 @@ export default function LoginPage() {
               display: "inline-flex",
               alignItems: "center",
               gap: "0.45rem",
-              color: "rgba(255, 255, 255, 0.8)",
-              fontSize: "0.85rem",
-              fontWeight: 600,
+              color: "#FDE047",
+              fontSize: "0.88rem",
+              fontWeight: 700,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Tra cứu tiến độ dành cho cử tri
+            Tra cứu tiến độ kiến nghị
           </Link>
         </div>
 
-        <div style={{ width: "100%", maxWidth: "400px", justifySelf: "end" }}>
+        {/* Vùng đăng nhập nền trắng sáng sạch, độ tương phản cao tối đa */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "420px",
+            justifySelf: "end",
+            backgroundColor: "#ffffff",
+            color: "var(--text-primary)",
+            borderRadius: "18px",
+            padding: "2.5rem 2.25rem",
+            boxShadow: "0 24px 54px rgba(0, 0, 0, 0.28)",
+          }}
+        >
           <h2
             style={{
-              fontSize: "1.55rem",
+              fontSize: "1.5rem",
               fontWeight: 800,
-              color: "#ffffff",
-              marginBottom: "1.75rem",
+              color: "#7f1d1d",
+              marginBottom: "1.5rem",
             }}
           >
             Đăng nhập cán bộ
@@ -182,12 +202,12 @@ export default function LoginPage() {
           {error && (
             <div
               style={{
-                backgroundColor: "rgba(220, 38, 38, 0.18)",
-                color: "#fca5a5",
+                backgroundColor: "var(--danger-bg)",
+                color: "var(--danger)",
                 padding: "0.8rem 1rem",
                 borderRadius: "10px",
                 fontSize: "0.85rem",
-                fontWeight: 600,
+                fontWeight: 700,
                 marginBottom: "1.25rem",
               }}
             >
@@ -196,8 +216,8 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
-              <label htmlFor="username" style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.88)" }}>
+            <div className="form-group">
+              <label htmlFor="username" className="form-label">
                 Tên đăng nhập
               </label>
               <input
@@ -208,22 +228,13 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Nhập tên tài khoản"
                 required
-                style={{
-                  width: "100%",
-                  padding: "0.8rem 1rem",
-                  borderRadius: "10px",
-                  border: "none",
-                  backgroundColor: "rgba(255, 255, 255, 0.09)",
-                  color: "#ffffff",
-                  fontSize: "0.92rem",
-                  outline: "none",
-                }}
+                className="form-control"
               />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+            <div className="form-group">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label htmlFor="password" style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.88)" }}>
+                <label htmlFor="password" className="form-label">
                   Mật khẩu
                 </label>
                 <button
@@ -236,9 +247,9 @@ export default function LoginPage() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "rgba(255, 255, 255, 0.7)",
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
+                    color: "#b91c1c",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
                     cursor: "pointer",
                   }}
                 >
@@ -254,16 +265,8 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Nhập mật khẩu"
                   required
-                  style={{
-                    width: "100%",
-                    padding: "0.8rem 3.5rem 0.8rem 1rem",
-                    borderRadius: "10px",
-                    border: "none",
-                    backgroundColor: "rgba(255, 255, 255, 0.09)",
-                    color: "#ffffff",
-                    fontSize: "0.92rem",
-                    outline: "none",
-                  }}
+                  className="form-control"
+                  style={{ paddingRight: "3.5rem" }}
                 />
                 <button
                   type="button"
@@ -275,9 +278,9 @@ export default function LoginPage() {
                     transform: "translateY(-50%)",
                     background: "none",
                     border: "none",
-                    color: "rgba(255, 255, 255, 0.6)",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    fontSize: "0.76rem",
+                    fontWeight: 700,
                     cursor: "pointer",
                   }}
                 >
@@ -289,8 +292,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-accent"
-              style={{ width: "100%", padding: "0.85rem 1.25rem", fontSize: "0.92rem", marginTop: "0.4rem" }}
+              className="btn-primary"
+              style={{ width: "100%", padding: "0.85rem 1.25rem", fontSize: "0.94rem", marginTop: "0.35rem" }}
             >
               {loading ? "Đang xác thực..." : "Đăng nhập"}
             </button>
@@ -305,10 +308,10 @@ export default function LoginPage() {
             style={{ maxWidth: "430px", padding: "2rem" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
+            <h3 className="modal-title" style={{ marginBottom: "0.5rem" }}>
               Khôi phục mật khẩu
             </h3>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1.25rem" }}>
+            <p style={{ fontSize: "0.86rem", color: "var(--text-secondary)", marginBottom: "1.25rem" }}>
               Nhập đúng Tên đăng nhập và Số CCCD đã đăng ký để đặt mật khẩu mới.
             </p>
 
@@ -319,8 +322,8 @@ export default function LoginPage() {
                   color: forgotMsg.type === "error" ? "var(--danger)" : "var(--success)",
                   padding: "0.7rem 0.9rem",
                   borderRadius: "8px",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
+                  fontSize: "0.84rem",
+                  fontWeight: 700,
                   marginBottom: "1rem",
                 }}
               >

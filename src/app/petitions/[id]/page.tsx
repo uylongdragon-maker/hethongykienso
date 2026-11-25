@@ -117,7 +117,7 @@ export default async function PetitionDetailPage({ params }: PageProps) {
               ? "Chế độ xem thông tin hồ sơ dành cho Lãnh đạo phường"
               : session.role === "CHUYEN_VIEN"
               ? "Cập nhật nội dung xử lý và trình Quản trị viên phê duyệt kết quả"
-              : "Cập nhật và phê duyệt kết quả giải quyết kiến nghị cử tri"}
+              : "Cập nhật và phê duyệt kết quả giải quyết kiến nghị"}
           </p>
         </div>
       </div>
@@ -130,7 +130,7 @@ export default async function PetitionDetailPage({ params }: PageProps) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Họ tên cử tri</label>
+                <label className="form-label">Họ tên người gửi</label>
                 <input
                   type="text"
                   name="senderName"
@@ -287,7 +287,7 @@ export default async function PetitionDetailPage({ params }: PageProps) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Nội dung kiến nghị cử tri</label>
+              <label className="form-label">Nội dung kiến nghị</label>
               <textarea
                 name="content"
                 defaultValue={petition.content}

@@ -11,10 +11,25 @@ interface MainLayoutProps {
   initialUser: SessionUser | null;
 }
 
+const FONT_SCALES = [92, 100, 110, 120] as const;
+
+function GoldStarMark({ size = 26 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="18" cy="18" r="18" fill="#7F1D1D" />
+      <polygon
+        points="18,6 21.1,14.1 29.8,14.4 22.9,19.7 25.3,28 18,23.1 10.7,28 13.1,19.7 6.2,14.4 14.9,14.1"
+        fill="#FACC15"
+      />
+    </svg>
+  );
+}
+
 export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(initialUser);
+  const [fontScaleIdx, setFontScaleIdx] = useState<number>(1);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -25,6 +40,33 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Khôi phục cỡ chữ đã chọn từ localStorage (hỗ trợ lãnh đạo lớn tuổi)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("hdnd_font_scale_idx");
+      if (saved !== null) {
+        const parsed = Number(saved);
+        if (!isNaN(parsed) && parsed >= 0 && parsed < FONT_SCALES.length) {
+          setFontScaleIdx(parsed);
+          document.documentElement.style.fontSize = `${FONT_SCALES[parsed]}%`;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const updateFontScale = (nextIdx: number) => {
+    const clamped = Math.max(0, Math.min(FONT_SCALES.length - 1, nextIdx));
+    setFontScaleIdx(clamped);
+    document.documentElement.style.fontSize = `${FONT_SCALES[clamped]}%`;
+    try {
+      localStorage.setItem("hdnd_font_scale_idx", String(clamped));
+    } catch {
+      // Ignore
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -41,25 +83,64 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
     return <>{children}</>;
   }
 
-  // Khi chưa đăng nhập (Cổng tra cứu công khai): hiển thị không gian mở, ẩn thanh điều hướng nội bộ
+  const fontSizeControls = (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+      <button
+        type="button"
+        onClick={() => updateFontScale(fontScaleIdx - 1)}
+        disabled={fontScaleIdx === 0}
+        className="party-header-btn"
+        title="Thu nhỏ cỡ chữ"
+        aria-label="Thu nhỏ cỡ chữ"
+      >
+        A-
+      </button>
+      <button
+        type="button"
+        onClick={() => updateFontScale(fontScaleIdx + 1)}
+        disabled={fontScaleIdx === FONT_SCALES.length - 1}
+        className="party-header-btn"
+        title="Phóng to cỡ chữ"
+        aria-label="Phóng to cỡ chữ"
+      >
+        A+
+      </button>
+    </div>
+  );
+
+  // Chưa đăng nhập: Cổng tra cứu công khai với Banner Đỏ cờ - Vàng kim trang nghiêm
   if (!user) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
-        <header className="main-header">
-          <Link
-            href="/"
-            style={{
-              fontSize: "0.85rem",
-              fontWeight: 800,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
+      <div className="party-shell">
+        <header className="party-header">
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.8rem", minWidth: 0 }}>
+            <GoldStarMark size={30} />
+            <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#FDE047", letterSpacing: "0.05em" }}>
+                HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
+              </span>
+              <span
+                className="party-title-long"
+                style={{
+                  fontSize: "0.86rem",
+                  fontWeight: 800,
+                  color: "#FFFFFF",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+              </span>
+            </div>
           </Link>
-          <Link href="/login" className="btn-primary">
-            Đăng nhập cán bộ
-          </Link>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+            {fontSizeControls}
+            <Link href="/login" className="party-header-btn-gold">
+              Đăng nhập cán bộ
+            </Link>
+          </div>
         </header>
         <main style={{ flex: 1 }}>{children}</main>
       </div>
@@ -71,7 +152,7 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
       href: "/",
       label: "Tổng quan",
       icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="9" />
           <rect x="14" y="3" width="7" height="5" />
           <rect x="14" y="12" width="7" height="9" />
@@ -81,9 +162,9 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
     },
     {
       href: "/petitions",
-      label: "Sổ theo dõi vụ việc",
+      label: "Sổ theo dõi kiến nghị",
       icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
           <line x1="16" y1="13" x2="8" y2="13" />
@@ -95,7 +176,7 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
       href: "/reports",
       label: "Báo cáo hiệu suất",
       icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="20" x2="18" y2="10" />
           <line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
@@ -104,9 +185,9 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
     },
     {
       href: "/map",
-      label: "Bản đồ vụ việc",
+      label: "Bản đồ địa bàn",
       icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
           <line x1="9" y1="3" x2="9" y2="18" />
           <line x1="15" y1="6" x2="15" y2="21" />
@@ -117,7 +198,7 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
       href: "/users",
       label: user.role === "ADMIN" ? "Quản lý tài khoản" : "Hồ sơ cá nhân",
       icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -128,132 +209,107 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   ];
 
   return (
-    <div className={`app-container ${collapsed ? "sidebar-collapsed" : ""}`}>
-      <div
-        className={`mobile-menu-backdrop ${mobileOpen ? "open" : ""}`}
-        onClick={() => setMobileOpen(false)}
-      />
-
-      <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "0.75rem",
-          }}
-        >
-          <Link
-            href="/"
-            title="Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông"
-            style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}
-          >
-            <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-              KIẾN NGHỊ CỬ TRI
-            </span>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)" }}>
-              HĐND Phường Bình Đông
-            </span>
-          </Link>
-
+    <div className="party-shell">
+      {/* Banner Đỏ cờ - Vàng kim toàn chiều rộng phía trên */}
+      <header className="party-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", minWidth: 0 }}>
           <button
             type="button"
             onClick={() => {
-              setCollapsed(true);
-              setMobileOpen(false);
+              if (window.innerWidth <= 1024) {
+                setMobileOpen((prev) => !prev);
+              } else {
+                setCollapsed((prev) => !prev);
+              }
             }}
-            className="btn-secondary"
-            style={{ padding: "0.35rem", borderRadius: "8px" }}
-            title="Thu gọn thanh điều hướng"
+            className="party-header-btn"
+            title="Ẩn hoặc hiện danh mục chức năng"
+            aria-label="Menu điều hướng"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
             </svg>
           </button>
+
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+            <GoldStarMark size={30} />
+            <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+              <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "#FDE047", letterSpacing: "0.05em" }}>
+                HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
+              </span>
+              <span
+                className="party-title-long"
+                style={{
+                  fontSize: "0.86rem",
+                  fontWeight: 800,
+                  color: "#FFFFFF",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+              </span>
+            </div>
+          </Link>
         </div>
 
-        <nav>
-          <ul className="nav-menu">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`nav-link${isActive ? " active" : ""}`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </aside>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flexShrink: 0 }}>
+          {fontSizeControls}
 
-      <main className="main-content">
-        <header className="main-header">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.innerWidth <= 1024) {
-                  setMobileOpen((prev) => !prev);
-                } else {
-                  setCollapsed((prev) => !prev);
-                }
-              }}
-              className="btn-secondary"
-              style={{ padding: "0.45rem 0.65rem" }}
-              title="Bật hoặc tắt menu điều hướng"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="18" x2="20" y2="18" />
-              </svg>
-            </button>
-
-            <span
-              style={{
-                fontSize: "0.82rem",
-                color: "var(--text-primary)",
-                fontWeight: 700,
-              }}
-            >
-              Hệ thống theo dõi giải quyết kiến nghị cử tri HĐND phường Bình Đông
+          <Link
+            href="/users"
+            style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.25 }}
+          >
+            <span style={{ fontSize: "0.84rem", fontWeight: 800, color: "#FFFFFF" }}>
+              {user.fullName}
             </span>
-          </div>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#FDE047" }}>
+              {getRoleDisplayName(user.role)}
+            </span>
+          </Link>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <Link
-              href="/users"
-              style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}
-            >
-              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                {user.fullName}
-              </span>
-              <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                {getRoleDisplayName(user.role)}
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="btn-secondary"
-              style={{ padding: "0.45rem 0.85rem", fontSize: "0.78rem" }}
-            >
-              Đăng xuất
-            </button>
-          </div>
-        </header>
+          <button type="button" onClick={handleLogout} className="party-header-btn">
+            Đăng xuất
+          </button>
+        </div>
+      </header>
 
-        {children}
-      </main>
+      {/* Không gian làm việc 2 cột: Menu chức năng bên trái + Nội dung chính */}
+      <div className={`app-container ${collapsed ? "sidebar-collapsed" : ""}`}>
+        <div
+          className={`mobile-menu-backdrop ${mobileOpen ? "open" : ""}`}
+          onClick={() => setMobileOpen(false)}
+        />
+
+        <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+          <nav>
+            <ul className="nav-menu">
+              {navItems.map((item) => {
+                const isActive =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`nav-link${isActive ? " active" : ""}`}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </aside>
+
+        <main className="main-content">{children}</main>
+      </div>
     </div>
   );
 }

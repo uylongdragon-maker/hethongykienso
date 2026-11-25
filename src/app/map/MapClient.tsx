@@ -369,7 +369,7 @@ export default function MapClient({ initialPetitions }: MapClientProps) {
         <div>
           <h1 className="page-title">Bản đồ số vụ việc phường Bình Đông</h1>
           <p className="page-subtitle">
-            Phân bố không gian 30 khu phố và điểm phản ánh kiến nghị cử tri
+            Phân bố không gian 30 khu phố và điểm phản ánh kiến nghị
           </p>
         </div>
       </div>

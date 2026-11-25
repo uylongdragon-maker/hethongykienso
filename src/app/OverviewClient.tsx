@@ -310,14 +310,14 @@ export default function OverviewClient({ initialUser, initialPetitions }: Overvi
       {/* Tiêu đề & tác vụ chính */}
       <div className="page-header" style={{ marginBottom: "2.25rem" }}>
         <div style={{ minWidth: 0 }}>
-          <h1 className="page-title">Tổng quan theo dõi kiến nghị cử tri</h1>
+          <h1 className="page-title">Tổng quan theo dõi giải quyết kiến nghị</h1>
           <p className="page-subtitle">
             Hoàn thành {stats.completed}/{stats.total} vụ việc ({stats.completionRate}%)
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap", flexShrink: 0 }}>
           <Link href="/petitions" className="btn-primary">
-            Mở sổ theo dõi vụ việc
+            Mở sổ theo dõi kiến nghị
           </Link>
           <Link href="/reports" className="btn-secondary">
             Báo cáo hiệu suất

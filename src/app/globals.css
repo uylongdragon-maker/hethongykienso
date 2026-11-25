@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #dc2626;
-  --color-primary-hover: #b91c1c;
-  --color-bg-app: #f6f7f9;
+  --color-primary: #b91c1c;
+  --color-primary-hover: #991b1b;
+  --color-gold: #facc15;
+  --color-bg-app: #faf9f6;
   --color-bg-surface: #ffffff;
-  --color-text-primary: #121316;
+  --color-text-primary: #1a1a1a;
   --color-text-secondary: #4b5563;
-  --color-text-muted: #787d87;
+  --color-text-muted: #6b7280;
 }
 
 :root {
@@ -15,26 +16,35 @@
   --font-display: var(--font-montserrat), system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --bg-app: #f6f7f9;
+  /* Tông màu Cổng thông tin Đảng: Đỏ cờ - Vàng kim - Trắng ngà sáng sạch */
+  --party-red: #b91c1c;
+  --party-red-dark: #991b1b;
+  --party-red-deep: #7f1d1d;
+  --party-red-soft: rgba(185, 28, 28, 0.08);
+  --party-gold: #facc15;
+  --party-gold-soft: #fde047;
+
+  --bg-app: #faf9f6;
   --bg-surface: #ffffff;
-  --bg-subtle: #eceef2;
-  --bg-subtle-hover: #e2e5ec;
+  --bg-sidebar: #f3efe9;
+  --bg-subtle: #efeae2;
+  --bg-subtle-hover: #e5ded3;
 
-  --text-primary: #121316;
+  --text-primary: #1a1a1a;
   --text-secondary: #4b5563;
-  --text-muted: #787d87;
+  --text-muted: #6b7280;
 
-  --primary: #dc2626;
-  --primary-hover: #b91c1c;
+  --primary: #b91c1c;
+  --primary-hover: #991b1b;
 
-  --danger: #dc2626;
-  --danger-bg: rgba(220, 38, 38, 0.08);
-  --success: #059669;
-  --success-bg: rgba(5, 150, 105, 0.08);
-  --warning: #d97706;
-  --warning-bg: rgba(217, 119, 6, 0.08);
-  --info: #2563eb;
-  --info-bg: rgba(37, 99, 235, 0.08);
+  --danger: #b91c1c;
+  --danger-bg: rgba(185, 28, 28, 0.09);
+  --success: #15803d;
+  --success-bg: rgba(21, 128, 61, 0.09);
+  --warning: #b45309;
+  --warning-bg: rgba(180, 83, 9, 0.1);
+  --info: #1d4ed8;
+  --info-bg: rgba(29, 78, 216, 0.09);
 
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -69,7 +79,7 @@ h5,
 h6 {
   font-family: var(--font-display);
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
@@ -87,6 +97,195 @@ a {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(127, 29, 29, 0.22);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(185, 28, 28, 0.45);
+}
+
+/* ============================================================
+   PARTY PORTAL TOP BANNER (ĐỎ CỜ - VÀNG KIM TRANG NGHIÊM)
+   ============================================================ */
+.party-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.party-header {
+  background: linear-gradient(90deg, #8f1616 0%, #b91c1c 55%, #991b1b 100%);
+  color: #ffffff;
+  padding: 0.75rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  box-shadow: 0 4px 18px rgba(127, 29, 29, 0.16);
+}
+
+.party-header-btn {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: var(--transition-smooth);
+}
+
+.party-header-btn:hover {
+  background-color: rgba(255, 255, 255, 0.24);
+}
+
+.party-header-btn-gold {
+  background-color: var(--party-gold);
+  color: #7f1d1d;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.party-header-btn-gold:hover {
+  background-color: var(--party-gold-soft);
+}
+
+/* ============================================================
+   WORKSPACE LAYOUT & SIDEBAR (SÁNG SẠCH, MỤC CHỌN ĐỎ CỜ)
+   ============================================================ */
+.app-container {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  flex: 1;
+  transition: grid-template-columns 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-container.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.sidebar {
+  background-color: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  position: sticky;
+  top: 64px;
+  height: calc(100dvh - 64px);
+  overflow-y: auto;
+  transition: var(--transition-smooth);
+}
+
+.app-container.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-menu {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: var(--radius-md);
+  color: #2d2a26;
+  font-weight: 700;
+  font-size: 0.88rem;
+  transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  color: var(--party-red-dark);
+  background-color: var(--party-red-soft);
+}
+
+.nav-link.active {
+  background-color: var(--party-red);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.nav-link.active svg {
+  stroke: var(--party-gold);
+}
+
+.main-content {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  padding: 2rem 2.75rem 3.5rem;
+  flex: 1;
+  max-width: 1480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.25rem;
+}
+
+.page-title {
+  font-size: clamp(1.55rem, 2.3vw, 2.05rem);
+  font-weight: 800;
+  color: var(--party-red-deep);
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.page-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-top: 0.3rem;
 }
 
 /* ============================================================
@@ -113,14 +312,14 @@ a {
 }
 
 .overview-kpi-value {
-  font-size: clamp(2.1rem, 2.8vw, 2.75rem);
+  font-size: clamp(2.15rem, 2.8vw, 2.8rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.04em;
 }
 
 .overview-kpi-label {
-  font-size: 0.83rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-secondary);
 }
@@ -137,171 +336,20 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 0.9rem;
-  margin-left: -0.9rem;
-  margin-right: -0.9rem;
+  padding: 0.9rem 1rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
   border-radius: var(--radius-md);
   transition: var(--transition-smooth);
   min-width: 0;
 }
 
 .urgent-row:hover {
-  background-color: rgba(18, 19, 22, 0.035);
-}
-
-@media (max-width: 1120px) {
-  .overview-kpi-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .overview-split {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2.5rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .overview-kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-  }
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(18, 19, 22, 0.18);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(18, 19, 22, 0.32);
+  background-color: rgba(185, 28, 28, 0.045);
 }
 
 /* ============================================================
-   LAYOUT & NAVIGATION (KHÔNG KHUNG VIỀN, KHÔNG ĐƯỜNG KẺ)
-   ============================================================ */
-.app-container {
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  min-height: 100dvh;
-  transition: grid-template-columns 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.app-container.sidebar-collapsed {
-  grid-template-columns: 0 1fr;
-}
-
-.sidebar {
-  background-color: #eef0f4;
-  display: flex;
-  flex-direction: column;
-  padding: 2rem 1.25rem;
-  height: 100dvh;
-  position: sticky;
-  top: 0;
-  overflow-y: auto;
-  transition: var(--transition-smooth);
-}
-
-.app-container.sidebar-collapsed .sidebar {
-  transform: translateX(-100%);
-  width: 0;
-  min-width: 0;
-  padding: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.nav-menu {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 2.25rem;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.86rem;
-  transition: var(--transition-smooth);
-  white-space: nowrap;
-}
-
-.nav-link:hover {
-  color: var(--text-primary);
-  background-color: rgba(18, 19, 22, 0.05);
-}
-
-.nav-link.active {
-  background-color: var(--text-primary);
-  color: #ffffff;
-  font-weight: 700;
-}
-
-.main-content {
-  min-width: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 2.75rem;
-  background-color: rgba(246, 247, 249, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  position: sticky;
-  top: 0;
-  z-index: 30;
-}
-
-.page-content {
-  padding: 1.75rem 2.75rem 3.5rem;
-  flex: 1;
-  max-width: 1520px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 2.25rem;
-}
-
-.page-title {
-  font-size: clamp(1.6rem, 2.4vw, 2.1rem);
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-}
-
-.page-subtitle {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-top: 0.35rem;
-}
-
-/* ============================================================
-   CONTROLS & BUTTONS (KHÔNG VIỀN, KHÔNG HIỆU ỨNG NEON LOÈ LOẸT)
+   CONTROLS & BUTTONS (RÕ RÀNG, KÍCH THƯỚC DỄ BẤM, KHÔNG VIỀN)
    ============================================================ */
 .btn,
 .btn-primary,
@@ -312,10 +360,10 @@ a {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  padding: 0.6rem 1.15rem;
+  padding: 0.65rem 1.2rem;
   border-radius: var(--radius-md);
   font-weight: 700;
-  font-size: 0.84rem;
+  font-size: 0.86rem;
   font-family: var(--font-sans);
   border: none;
   outline: none;
@@ -325,21 +373,14 @@ a {
   white-space: nowrap;
 }
 
-.btn-primary {
-  background-color: var(--text-primary);
-  color: #ffffff;
-}
-.btn-primary:hover:not(:disabled) {
-  background-color: #282a30;
-  transform: translateY(-1px);
-}
-
+.btn-primary,
 .btn-accent {
-  background-color: var(--primary);
+  background-color: var(--party-red);
   color: #ffffff;
 }
+.btn-primary:hover:not(:disabled),
 .btn-accent:hover:not(:disabled) {
-  background-color: var(--primary-hover);
+  background-color: var(--party-red-dark);
   transform: translateY(-1px);
 }
 
@@ -356,7 +397,7 @@ a {
   color: var(--danger);
 }
 .btn-danger-tonal:hover:not(:disabled) {
-  background-color: rgba(220, 38, 38, 0.14);
+  background-color: rgba(185, 28, 28, 0.16);
 }
 
 button:disabled {
@@ -371,7 +412,7 @@ button:disabled {
 }
 
 .form-label {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -383,15 +424,15 @@ button:disabled {
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-weight: 500;
-  padding: 0.65rem 0.9rem;
-  font-size: 0.875rem;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.9rem;
   transition: var(--transition-smooth);
   width: 100%;
   outline: none;
 }
 
 .form-control:focus {
-  background-color: #e3e7ef;
+  background-color: #e7dfd4;
 }
 
 .form-control:disabled,
@@ -403,7 +444,7 @@ button:disabled {
 select.form-control {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234b5563'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%237f1d1d'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 0.95em;
@@ -412,11 +453,11 @@ select.form-control {
 
 .form-textarea {
   resize: vertical;
-  min-height: 84px;
+  min-height: 88px;
 }
 
 /* ============================================================
-   TABLES (PHÂN TẦNG NỀN ZEBRA, KHÔNG KẺ ĐƯỜNG LƯỚI)
+   TABLES (SÁNG RÕ, HÀNG XEN KẼ, KHÔNG KẺ LƯỚI RỐI MẮT)
    ============================================================ */
 .table-container {
   overflow-x: auto;
@@ -440,30 +481,30 @@ select.form-control {
 }
 
 .data-table th {
-  padding: 0.85rem 1rem;
-  background-color: #eaedf2;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  padding: 0.9rem 1rem;
+  background-color: #f3ebe4;
+  color: var(--party-red-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.015em;
   border: none;
 }
 
 .data-table td {
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1rem;
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 0.87rem;
   font-weight: 500;
   vertical-align: top;
   border: none;
 }
 
 .data-table tbody tr:nth-child(even) {
-  background-color: rgba(18, 19, 22, 0.024);
+  background-color: rgba(127, 29, 29, 0.025);
 }
 
 .data-table tbody tr:hover {
-  background-color: rgba(37, 99, 235, 0.055);
+  background-color: rgba(185, 28, 28, 0.055);
 }
 
 .ledger-table {
@@ -477,25 +518,25 @@ select.form-control {
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
-  line-height: 1.4 !important;
-  font-size: 0.8rem !important;
-  padding: 0.7rem 0.8rem !important;
+  line-height: 1.42 !important;
+  font-size: 0.82rem !important;
+  padding: 0.75rem 0.85rem !important;
   border: none !important;
 }
 
 .ledger-table thead th {
-  font-weight: 700 !important;
-  background-color: #eaedf2 !important;
-  color: var(--text-primary) !important;
-  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  background-color: #f3ebe4 !important;
+  color: var(--party-red-deep) !important;
+  font-size: 0.76rem !important;
 }
 
 /* ============================================================
-   STATUS TYPOGRAPHY (KHÔNG ĐÓNG Ô BADGE / PILL)
+   STATUS TYPOGRAPHY (KHÔNG ĐÓNG Ô PILL / BADGE)
    ============================================================ */
 .status-text {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 800;
   display: inline-block;
 }
 .status-resolved {
@@ -516,21 +557,21 @@ select.form-control {
    ============================================================ */
 .progress-track {
   width: 100%;
-  height: 6px;
-  background-color: rgba(18, 19, 22, 0.07);
-  border-radius: 9999px;
+  height: 7px;
+  background-color: #eae4dc;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 9999px;
-  background-color: var(--text-primary);
+  border-radius: 4px;
+  background-color: var(--party-red);
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================================
-   DETAIL & MODAL SURFACES (KHÔNG ĐƯỜNG KẺ PHÂN CÁCH)
+   DETAIL & MODAL SURFACES
    ============================================================ */
 .grid-layout-details {
   display: grid;
@@ -543,23 +584,22 @@ select.form-control {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
+  color: var(--party-red-dark);
+  font-size: 0.88rem;
   font-weight: 700;
   margin-bottom: 1.5rem;
   transition: var(--transition-smooth);
 }
 .back-link:hover {
-  color: var(--text-primary);
   transform: translateX(-2px);
 }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(18, 19, 22, 0.48);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background-color: rgba(26, 20, 20, 0.52);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -575,7 +615,7 @@ select.form-control {
   max-width: 760px;
   max-height: 90dvh;
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(18, 19, 22, 0.18);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
 }
@@ -590,6 +630,7 @@ select.form-control {
 .modal-title {
   font-size: 1.2rem;
   font-weight: 800;
+  color: var(--party-red-deep);
 }
 
 .modal-close {
@@ -598,8 +639,8 @@ select.form-control {
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 1.2rem;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 9999px;
   display: flex;
   align-items: center;
@@ -632,8 +673,8 @@ select.form-control {
 
 .heatmap-tooltip {
   visibility: hidden;
-  width: 190px;
-  background-color: #121316;
+  width: 195px;
+  background-color: #7f1d1d;
   color: #ffffff;
   text-align: left;
   border-radius: var(--radius-md);
@@ -642,11 +683,11 @@ select.form-control {
   z-index: 100;
   bottom: 112%;
   left: 50%;
-  margin-left: -95px;
+  margin-left: -97px;
   opacity: 0;
   transition: opacity 0.18s ease, transform 0.18s ease;
   transform: translateY(4px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
   pointer-events: none;
 }
 
@@ -672,47 +713,58 @@ select.form-control {
 
 @keyframes map-pin-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.65);
+    box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.65);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+    box-shadow: 0 0 0 10px rgba(185, 28, 28, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    box-shadow: 0 0 0 0 rgba(185, 28, 28, 0);
   }
 }
 
 .marker-overdue {
-  background-color: #dc2626;
+  background-color: #b91c1c;
   animation: map-pin-pulse 1.8s infinite;
 }
 .marker-in-progress {
-  background-color: #d97706;
+  background-color: #b45309;
 }
 .marker-completed {
-  background-color: #059669;
+  background-color: #15803d;
 }
 
 /* ============================================================
-   MOBILE & TABLET NAVIGATION
+   RESPONSIVE BREAKPOINTS
    ============================================================ */
 .mobile-menu-backdrop {
   display: none;
 }
 
+@media (max-width: 1120px) {
+  .overview-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overview-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+}
+
 @media (max-width: 1024px) {
   .app-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .sidebar {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 260px;
+    height: 100dvh;
+    width: 264px;
     z-index: 900;
     transform: translateX(-100%);
-    box-shadow: 12px 0 36px rgba(0, 0, 0, 0.14);
+    box-shadow: 12px 0 36px rgba(0, 0, 0, 0.18);
   }
   .sidebar.mobile-open {
     transform: translateX(0);
@@ -721,18 +773,28 @@ select.form-control {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(18, 19, 22, 0.4);
+    background: rgba(26, 20, 20, 0.45);
     z-index: 850;
   }
-  .main-header {
-    padding: 0.85rem 1.25rem;
+  .party-header {
+    padding: 0.7rem 1.15rem;
   }
   .page-content {
-    padding: 1.25rem 1.25rem 2.5rem;
+    padding: 1.5rem 1.25rem 2.75rem;
   }
   .grid-layout-details {
     grid-template-columns: 1fr;
     gap: 2.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+  .party-title-long {
+    display: none;
   }
 }
 
@@ -751,7 +813,7 @@ select.form-control {
     font-family: "Times New Roman", Times, serif !important;
   }
   .sidebar,
-  .main-header,
+  .party-header,
   .no-print,
   .modal-overlay,
   button {

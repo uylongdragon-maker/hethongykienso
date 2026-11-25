@@ -176,7 +176,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
       </div>
 
       <div className="form-group">
-        <label className="form-label">Địa chỉ liên hệ cử tri *</label>
+        <label className="form-label">Địa chỉ liên hệ người gửi *</label>
         <input
           type="text"
           required
@@ -264,7 +264,7 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
       </div>
 
       <div className="form-group">
-        <label className="form-label">Nội dung kiến nghị cử tri *</label>
+        <label className="form-label">Nội dung kiến nghị *</label>
         <textarea
           required
           rows={3}
