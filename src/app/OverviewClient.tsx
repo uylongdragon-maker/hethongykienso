@@ -171,16 +171,17 @@ export default function OverviewClient({ initialUser, initialPetitions }: Overvi
         <section style={{ marginBottom: "3.5rem" }}>
           <h1
             style={{
-              fontSize: "clamp(1.85rem, 3.3vw, 2.85rem)",
+              fontSize: "clamp(1.75rem, 3.1vw, 2.65rem)",
               fontWeight: 800,
-              lineHeight: 1.2,
-              letterSpacing: "-0.03em",
-              color: "var(--text-primary)",
-              maxWidth: "920px",
+              lineHeight: 1.24,
+              letterSpacing: "-0.025em",
+              color: "var(--party-red-deep)",
+              textTransform: "uppercase",
+              maxWidth: "960px",
               marginBottom: "1.15rem",
             }}
           >
-            Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+            HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT KIẾN NGHỊ CỬ TRI CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
           </h1>
           <p style={{ fontSize: "1rem", color: "var(--text-secondary)", maxWidth: "680px" }}>
             Nhập mã hồ sơ kiến nghị để tra cứu trạng thái xử lý và văn bản phản hồi từ cơ quan có thẩm quyền.

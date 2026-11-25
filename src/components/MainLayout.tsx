@@ -13,18 +13,6 @@ interface MainLayoutProps {
 
 const FONT_SCALES = [92, 100, 110, 120] as const;
 
-function GoldStarMark({ size = 26 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <circle cx="18" cy="18" r="18" fill="#7F1D1D" />
-      <polygon
-        points="18,6 21.1,14.1 29.8,14.4 22.9,19.7 25.3,28 18,23.1 10.7,28 13.1,19.7 6.2,14.4 14.9,14.1"
-        fill="#FACC15"
-      />
-    </svg>
-  );
-}
-
 export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -114,7 +102,6 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
       <div className="party-shell">
         <header className="party-header">
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.8rem", minWidth: 0 }}>
-            <GoldStarMark size={30} />
             <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#FDE047", letterSpacing: "0.05em" }}>
                 HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
@@ -122,15 +109,16 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
               <span
                 className="party-title-long"
                 style={{
-                  fontSize: "0.86rem",
+                  fontSize: "0.84rem",
                   fontWeight: 800,
                   color: "#FFFFFF",
+                  textTransform: "uppercase",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}
               >
-                Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+                HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT KIẾN NGHỊ CỬ TRI CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
               </span>
             </div>
           </Link>
@@ -234,7 +222,6 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
           </button>
 
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
-            <GoldStarMark size={30} />
             <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "#FDE047", letterSpacing: "0.05em" }}>
                 HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
@@ -242,15 +229,16 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
               <span
                 className="party-title-long"
                 style={{
-                  fontSize: "0.86rem",
+                  fontSize: "0.84rem",
                   fontWeight: 800,
                   color: "#FFFFFF",
+                  textTransform: "uppercase",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}
               >
-                Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+                HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT KIẾN NGHỊ CỬ TRI CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
               </span>
             </div>
           </Link>

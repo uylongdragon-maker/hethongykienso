@@ -111,14 +111,7 @@ export default function LoginPage() {
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1.5rem" }}>
-            <svg width="44" height="44" viewBox="0 0 36 36" fill="none" aria-hidden="true">
-              <circle cx="18" cy="18" r="18" fill="#7F1D1D" />
-              <polygon
-                points="18,6 21.1,14.1 29.8,14.4 22.9,19.7 25.3,28 18,23.1 10.7,28 13.1,19.7 6.2,14.4 14.9,14.1"
-                fill="#FACC15"
-              />
-            </svg>
+          <div style={{ marginBottom: "1.25rem" }}>
             <span
               style={{
                 fontSize: "0.9rem",
@@ -128,21 +121,22 @@ export default function LoginPage() {
                 textTransform: "uppercase",
               }}
             >
-              Hội đồng nhân dân phường Bình Đông
+              HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
             </span>
           </div>
 
           <h1
             style={{
-              fontSize: "clamp(1.85rem, 3.1vw, 2.75rem)",
+              fontSize: "clamp(1.75rem, 3vw, 2.6rem)",
               fontWeight: 800,
-              lineHeight: 1.24,
+              lineHeight: 1.26,
               letterSpacing: "-0.02em",
               color: "#ffffff",
+              textTransform: "uppercase",
               marginBottom: "1.5rem",
             }}
           >
-            Hệ thống ứng dụng tổng hợp, theo dõi giải quyết kiến nghị cử tri của Hội đồng nhân dân phường Bình Đông
+            HỆ THỐNG ỨNG DỤNG TỔNG HỢP, THEO DÕI GIẢI QUYẾT KIẾN NGHỊ CỬ TRI CỦA HỘI ĐỒNG NHÂN DÂN PHƯỜNG BÌNH ĐÔNG
           </h1>
 
           <p
