@@ -112,7 +112,8 @@ function replaceDataUrlWithProxy(
  * giảm 99% băng thông CSDL và kích thước HTML trả về trình duyệt.
  */
 export async function fetchSerializedPetitions(): Promise<SerializedPetition[]> {
-  await syncOverduePetitions();
+  // Đồng bộ quá hạn chạy nền không chặn luồng tải trang (UI đã tự tính quá hạn theo thời gian thực)
+  void syncOverduePetitions();
 
   try {
     const rows = await prisma.$queryRaw<RawPetitionRow[]>(Prisma.sql`

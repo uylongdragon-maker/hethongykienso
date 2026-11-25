@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SessionUser } from "@/lib/auth";
+import { Spinner } from "@/components/Spinner";
 import {
   PublicPetitionSummary,
   SerializedPetition,
@@ -207,7 +208,14 @@ export default function OverviewClient({ initialUser, initialPetitions }: Overvi
               style={{ flex: "1 1 280px", fontFamily: "var(--font-mono)", fontSize: "0.95rem" }}
             />
             <button type="submit" disabled={lookupLoading} className="btn-primary" style={{ padding: "0.65rem 1.5rem" }}>
-              {lookupLoading ? "Đang tra cứu..." : "Tra cứu"}
+              {lookupLoading ? (
+                <>
+                  <Spinner size={15} />
+                  <span>Đang tra cứu...</span>
+                </>
+              ) : (
+                "Tra cứu"
+              )}
             </button>
           </form>
 
@@ -584,7 +592,14 @@ export default function OverviewClient({ initialUser, initialPetitions }: Overvi
                           className="btn-primary"
                           style={{ padding: "0.38rem 0.75rem", fontSize: "0.76rem" }}
                         >
-                          {approvingId === p.id ? "Đang duyệt..." : "Duyệt xong"}
+                          {approvingId === p.id ? (
+                            <>
+                              <Spinner size={13} />
+                              <span>Đang duyệt...</span>
+                            </>
+                          ) : (
+                            "Duyệt xong"
+                          )}
                         </button>
                       )}
                       <Link

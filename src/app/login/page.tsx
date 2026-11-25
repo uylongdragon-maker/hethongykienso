@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/Spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -289,7 +290,14 @@ export default function LoginPage() {
               className="btn-primary"
               style={{ width: "100%", padding: "0.85rem 1.25rem", fontSize: "0.94rem", marginTop: "0.35rem" }}
             >
-              {loading ? "Đang xác thực..." : "Đăng nhập"}
+              {loading ? (
+                <>
+                  <Spinner size={16} />
+                  <span>Đang xác thực...</span>
+                </>
+              ) : (
+                "Đăng nhập"
+              )}
             </button>
           </form>
         </div>

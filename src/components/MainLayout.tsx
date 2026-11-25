@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { SessionUser } from "@/lib/auth";
 import { getRoleDisplayName } from "@/lib/petitionUtils";
+import { Spinner } from "@/components/Spinner";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,8 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(initialUser);
   const [fontScaleIdx, setFontScaleIdx] = useState<number>(1);
+  const [navigating, setNavigating] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -27,7 +30,33 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
 
   useEffect(() => {
     setMobileOpen(false);
+    setNavigating(false);
   }, [pathname]);
+
+  // Hiển thị thanh tiến trình ngay lập tức khi bấm chuyển trang nội bộ
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      const href = anchor.getAttribute("href");
+      if (!href || !href.startsWith("/") || href.startsWith("//")) return;
+      const destPath = href.split("?")[0].split("#")[0];
+      if (destPath !== pathname) {
+        setNavigating(true);
+      }
+    };
+    document.addEventListener("click", onDocClick, true);
+    return () => document.removeEventListener("click", onDocClick, true);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navigating) return;
+    const t = setTimeout(() => setNavigating(false), 8000);
+    return () => clearTimeout(t);
+  }, [navigating]);
 
   // Khôi phục cỡ chữ đã chọn từ localStorage (hỗ trợ lãnh đạo lớn tuổi)
   useEffect(() => {
@@ -57,6 +86,7 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
   };
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
@@ -64,6 +94,7 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
       router.refresh();
     } catch (err) {
       console.error("Logout Error:", err);
+      setLoggingOut(false);
     }
   };
 
@@ -198,6 +229,11 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
 
   return (
     <div className="party-shell">
+      {navigating && (
+        <div className="route-progress-track" role="progressbar" aria-label="Đang tải trang">
+          <div className="route-progress-bar" />
+        </div>
+      )}
       {/* Banner Đỏ cờ - Vàng kim toàn chiều rộng phía trên */}
       <header className="party-header">
         <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", minWidth: 0 }}>
@@ -259,8 +295,15 @@ export default function MainLayout({ children, initialUser }: MainLayoutProps) {
             </span>
           </Link>
 
-          <button type="button" onClick={handleLogout} className="party-header-btn">
-            Đăng xuất
+          <button type="button" onClick={handleLogout} disabled={loggingOut} className="party-header-btn">
+            {loggingOut ? (
+              <>
+                <Spinner size={13} />
+                <span>Đang thoát...</span>
+              </>
+            ) : (
+              "Đăng xuất"
+            )}
           </button>
         </div>
       </header>

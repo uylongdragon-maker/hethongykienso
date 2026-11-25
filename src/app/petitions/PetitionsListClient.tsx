@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PetitionForm from "@/components/PetitionForm";
 import FileUpload from "@/components/FileUpload";
+import { Spinner } from "@/components/Spinner";
 import { openDocumentViewer } from "@/lib/fileViewer";
 import { escapeHtml } from "@/lib/security";
 import { REVIEW_STATUSES } from "@/lib/constants";
@@ -961,7 +962,7 @@ export default function PetitionsListClient({
                             className="btn-danger-tonal"
                             style={{ padding: "0.32rem 0.55rem", fontSize: "0.74rem" }}
                           >
-                            {deletingId === pet.id ? "..." : "Xóa"}
+                            {deletingId === pet.id ? <Spinner size={13} /> : "Xóa"}
                           </button>
                         )}
                       </div>
@@ -1117,7 +1118,14 @@ export default function PetitionsListClient({
                   className="btn-primary"
                   disabled={quickLoading}
                 >
-                  {quickLoading ? "Đang lưu..." : "Lưu cập nhật"}
+                  {quickLoading ? (
+                    <>
+                      <Spinner size={14} />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    "Lưu cập nhật"
+                  )}
                 </button>
               </div>
             </div>

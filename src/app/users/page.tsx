@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import FileUpload from "@/components/FileUpload";
+import { Spinner } from "@/components/Spinner";
 import { DEPARTMENTS } from "@/lib/constants";
 import { getRoleDisplayName } from "@/lib/petitionUtils";
 
@@ -59,6 +60,8 @@ export default function AccountCenterPage() {
   const [adminPosition, setAdminPosition] = useState("Chuyên viên thống kê báo cáo");
   const [adminSaving, setAdminSaving] = useState(false);
   const [adminFormError, setAdminFormError] = useState<string | null>(null);
+  const [approvingKey, setApprovingKey] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -184,6 +187,8 @@ export default function AccountCenterPage() {
   };
 
   const handleAdminApproveChange = async (userId: string, action: "APPROVE" | "REJECT") => {
+    const key = `${userId}:${action}`;
+    setApprovingKey(key);
     try {
       const res = await fetch("/api/users/approve-change", {
         method: "POST",
@@ -198,6 +203,8 @@ export default function AccountCenterPage() {
       }
     } catch {
       alert("Lỗi kết nối máy chủ.");
+    } finally {
+      setApprovingKey(null);
     }
   };
 
@@ -251,6 +258,7 @@ export default function AccountCenterPage() {
   const handleAdminDeleteUser = async (userId: string, targetUsername: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Xác nhận xóa tài khoản "${targetUsername}"?`)) return;
+    setDeletingUserId(userId);
     try {
       const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
       const data = await res.json();
@@ -261,6 +269,8 @@ export default function AccountCenterPage() {
       }
     } catch {
       alert("Lỗi khi xóa tài khoản.");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -293,8 +303,34 @@ export default function AccountCenterPage() {
 
   if (loading) {
     return (
-      <div className="page-content" style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
-        Đang tải thông tin tài khoản...
+      <div className="page-content" aria-busy="true" aria-live="polite">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2.25rem", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="skeleton-bar" style={{ width: "300px", height: "30px" }} />
+            <div className="skeleton-bar" style={{ width: "220px", height: "16px" }} />
+          </div>
+          <div className="skeleton-bar" style={{ width: "155px", height: "38px" }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.95rem" }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.6fr 1fr 1.6fr 1fr 1fr 0.8fr",
+                gap: "1rem",
+                alignItems: "center",
+              }}
+            >
+              <div className="skeleton-bar" style={{ height: "18px" }} />
+              <div className="skeleton-bar" style={{ height: "16px" }} />
+              <div className="skeleton-bar" style={{ height: "16px" }} />
+              <div className="skeleton-bar" style={{ height: "16px" }} />
+              <div className="skeleton-bar" style={{ height: "16px" }} />
+              <div className="skeleton-bar" style={{ height: "28px" }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -431,7 +467,14 @@ export default function AccountCenterPage() {
 
               <div>
                 <button type="submit" disabled={profileSaving} className="btn-primary">
-                  {profileSaving ? "Đang lưu..." : "Lưu thông tin liên hệ"}
+                  {profileSaving ? (
+                    <>
+                      <Spinner size={14} />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    "Lưu thông tin liên hệ"
+                  )}
                 </button>
               </div>
             </form>
@@ -468,7 +511,14 @@ export default function AccountCenterPage() {
 
               <div>
                 <button type="submit" disabled={pwdSaving} className="btn-primary">
-                  {pwdSaving ? "Đang cập nhật..." : "Đổi mật khẩu"}
+                  {pwdSaving ? (
+                    <>
+                      <Spinner size={14} />
+                      <span>Đang cập nhật...</span>
+                    </>
+                  ) : (
+                    "Đổi mật khẩu"
+                  )}
                 </button>
               </div>
             </form>
@@ -539,7 +589,14 @@ export default function AccountCenterPage() {
             </div>
 
             <button type="submit" disabled={requestSaving} className="btn-secondary">
-              {requestSaving ? "Đang gửi..." : "Gửi yêu cầu phê duyệt"}
+              {requestSaving ? (
+                <>
+                  <Spinner size={14} />
+                  <span>Đang gửi...</span>
+                </>
+              ) : (
+                "Gửi yêu cầu phê duyệt"
+              )}
             </button>
           </form>
         </section>
@@ -601,19 +658,35 @@ export default function AccountCenterPage() {
                 <div style={{ display: "flex", gap: "0.55rem" }}>
                   <button
                     type="button"
+                    disabled={approvingKey !== null}
                     onClick={() => handleAdminApproveChange(reqUser.id, "APPROVE")}
                     className="btn-primary"
                     style={{ padding: "0.45rem 0.95rem", fontSize: "0.8rem" }}
                   >
-                    Phê duyệt
+                    {approvingKey === `${reqUser.id}:APPROVE` ? (
+                      <>
+                        <Spinner size={13} />
+                        <span>Đang duyệt...</span>
+                      </>
+                    ) : (
+                      "Phê duyệt"
+                    )}
                   </button>
                   <button
                     type="button"
+                    disabled={approvingKey !== null}
                     onClick={() => handleAdminApproveChange(reqUser.id, "REJECT")}
                     className="btn-danger-tonal"
                     style={{ padding: "0.45rem 0.95rem", fontSize: "0.8rem" }}
                   >
-                    Từ chối
+                    {approvingKey === `${reqUser.id}:REJECT` ? (
+                      <>
+                        <Spinner size={13} />
+                        <span>Đang từ chối...</span>
+                      </>
+                    ) : (
+                      "Từ chối"
+                    )}
                   </button>
                 </div>
               </div>
@@ -676,11 +749,12 @@ export default function AccountCenterPage() {
                       {!isSelf && (
                         <button
                           type="button"
+                          disabled={deletingUserId === u.id}
                           onClick={(e) => handleAdminDeleteUser(u.id, u.username, e)}
                           className="btn-danger-tonal"
                           style={{ padding: "0.35rem 0.7rem", fontSize: "0.76rem" }}
                         >
-                          Xóa
+                          {deletingUserId === u.id ? <Spinner size={13} /> : "Xóa"}
                         </button>
                       )}
                     </div>
@@ -825,7 +899,16 @@ export default function AccountCenterPage() {
                     Hủy
                   </button>
                   <button type="submit" disabled={adminSaving} className="btn-primary">
-                    {adminSaving ? "Đang lưu..." : editingUser ? "Lưu thay đổi" : "Tạo tài khoản"}
+                    {adminSaving ? (
+                      <>
+                        <Spinner size={14} />
+                        <span>Đang lưu...</span>
+                      </>
+                    ) : editingUser ? (
+                      "Lưu thay đổi"
+                    ) : (
+                      "Tạo tài khoản"
+                    )}
                   </button>
                 </div>
               </form>

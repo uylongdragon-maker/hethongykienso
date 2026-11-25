@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { getSession, hashPassword, invalidateUserSessionCache, verifyPassword } from "@/lib/auth";
 import { sanitizeAttachmentUrl } from "@/lib/security";
 
 // PUT /api/users/profile - Cập nhật thông tin cá nhân, đổi mật khẩu hoặc gửi yêu cầu phê duyệt định danh
@@ -115,6 +115,7 @@ export async function PUT(req: NextRequest) {
         changeRequestedAt: true,
       },
     });
+    invalidateUserSessionCache(session.id);
 
     let message = "Đã lưu thông tin hồ sơ cá nhân.";
     if (updateData.passwordHash) {

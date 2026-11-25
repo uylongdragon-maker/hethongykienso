@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import FileUpload from "@/components/FileUpload";
+import { Spinner } from "@/components/Spinner";
 import { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES, RESPONSIBLE_COMMITTEES } from "@/lib/constants";
 
 export { SOURCES, CATEGORIES, DEPARTMENTS, AUTHORITIES, RESPONSIBLE_COMMITTEES };
@@ -321,7 +322,14 @@ export default function PetitionForm({ onSuccess, onCancel }: PetitionFormProps)
           Hủy
         </button>
         <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? "Đang lưu..." : "Lưu hồ sơ kiến nghị"}
+          {loading ? (
+            <>
+              <Spinner size={15} />
+              <span>Đang lưu...</span>
+            </>
+          ) : (
+            "Lưu hồ sơ kiến nghị"
+          )}
         </button>
       </div>
     </form>

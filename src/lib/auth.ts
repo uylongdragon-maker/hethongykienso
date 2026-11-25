@@ -111,7 +111,33 @@ export interface SessionUser {
   administrativeUnitId?: string | null;
 }
 
-// Xác thực token kết hợp đối chiếu tài khoản thực tế trong CSDL (được deduplicate trong mỗi request nhờ React cache)
+interface CachedSessionEntry {
+  user: SessionUser | null;
+  expiresAt: number;
+}
+
+const globalSessionCache = globalThis as unknown as {
+  __ykiensoSessionCache?: Map<string, CachedSessionEntry>;
+};
+
+function getSessionCache(): Map<string, CachedSessionEntry> {
+  if (!globalSessionCache.__ykiensoSessionCache) {
+    globalSessionCache.__ykiensoSessionCache = new Map<string, CachedSessionEntry>();
+  }
+  return globalSessionCache.__ykiensoSessionCache;
+}
+
+export function invalidateUserSessionCache(userId?: string): void {
+  const store = getSessionCache();
+  if (userId) {
+    store.delete(userId);
+  } else {
+    store.clear();
+  }
+}
+
+// Xác thực token kết hợp đối chiếu tài khoản thực tế trong CSDL
+// Có bộ nhớ đệm 30 giây theo userId để tránh lặp roundtrip DB khi chuyển trang nhanh
 export const getSession = cache(async (): Promise<SessionUser | null> => {
   try {
     const cookieStore = await cookies();
@@ -120,6 +146,13 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
 
     const decoded = verifyToken<SessionUser>(token);
     if (!decoded || !decoded.id) return null;
+
+    const now = Date.now();
+    const store = getSessionCache();
+    const cached = store.get(decoded.id);
+    if (cached && cached.expiresAt > now) {
+      return cached.user;
+    }
 
     const dbUser = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -134,9 +167,14 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
       },
     });
 
-    if (!dbUser) return null;
+    if (store.size > 500) {
+      for (const [k, v] of store.entries()) {
+        if (v.expiresAt <= now) store.delete(k);
+      }
+    }
 
-    return dbUser;
+    store.set(decoded.id, { user: dbUser || null, expiresAt: now + 30_000 });
+    return dbUser || null;
   } catch {
     return null;
   }

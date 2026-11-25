@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, hashPassword, isValidUserRole } from "@/lib/auth";
+import { getSession, hashPassword, invalidateUserSessionCache, isValidUserRole } from "@/lib/auth";
 
 // 1. PUT: Cập nhật quyền hạn/thông tin tài khoản (Chỉ ADMIN)
 export async function PUT(
@@ -97,6 +97,7 @@ export async function PUT(
         updatedAt: true,
       },
     });
+    invalidateUserSessionCache(id);
 
     return NextResponse.json({
       success: true,
@@ -147,6 +148,7 @@ export async function DELETE(
     }
 
     await prisma.user.delete({ where: { id } });
+    invalidateUserSessionCache(id);
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, invalidateUserSessionCache } from "@/lib/auth";
 
 // POST /api/users/approve-change - Admin phê duyệt hoặc từ chối yêu cầu thay đổi thông tin
 export async function POST(req: NextRequest) {
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
           changeRequestStatus: "APPROVED",
         },
       });
+      invalidateUserSessionCache(userId);
 
       return NextResponse.json({
         success: true,
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
           changeRequestStatus: "REJECTED",
         },
       });
+      invalidateUserSessionCache(userId);
 
       return NextResponse.json({
         success: true,

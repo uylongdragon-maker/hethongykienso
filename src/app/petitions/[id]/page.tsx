@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { updatePetitionResolution } from "./actions";
 import FileUpload from "@/components/FileUpload";
+import SubmitButton from "@/components/SubmitButton";
 import { getSession } from "@/lib/auth";
 import { extractCommitteeFromNotes } from "@/lib/petitionUtils";
 import {
@@ -22,41 +23,44 @@ interface PageProps {
 }
 
 export default async function PetitionDetailPage({ params }: PageProps) {
-  const session = await getSession();
+  const { id } = await params;
+
+  const [session, petition] = await Promise.all([
+    getSession(),
+    prisma.petition.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        petitionCode: true,
+        source: true,
+        quarter: true,
+        senderName: true,
+        senderAddress: true,
+        senderPhone: true,
+        category: true,
+        location: true,
+        content: true,
+        authority: true,
+        department: true,
+        receivedDate: true,
+        deadline: true,
+        extendedUntil: true,
+        status: true,
+        replyDocNumber: true,
+        replyDocDate: true,
+        reviewStatus: true,
+        notes: true,
+        attachmentUrl: true,
+        replyDocLink: true,
+      },
+    }),
+  ]);
+
   if (!session) {
     redirect("/login");
   }
 
   const isReadOnly = session.role === "CAN_BO";
-  const { id } = await params;
-
-  const petition = await prisma.petition.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      petitionCode: true,
-      source: true,
-      quarter: true,
-      senderName: true,
-      senderAddress: true,
-      senderPhone: true,
-      category: true,
-      location: true,
-      content: true,
-      authority: true,
-      department: true,
-      receivedDate: true,
-      deadline: true,
-      extendedUntil: true,
-      status: true,
-      replyDocNumber: true,
-      replyDocDate: true,
-      reviewStatus: true,
-      notes: true,
-      attachmentUrl: true,
-      replyDocLink: true,
-    },
-  });
 
   if (!petition) {
     notFound();
@@ -438,9 +442,16 @@ export default async function PetitionDetailPage({ params }: PageProps) {
                   <Link href="/petitions" className="btn-secondary">
                     Hủy
                   </Link>
-                  <button type="submit" className="btn-primary" style={{ flex: 1 }}>
-                    {session.role === "CHUYEN_VIEN" ? "Lưu & cập nhật hồ sơ" : "Lưu kết quả & phê duyệt"}
-                  </button>
+                  <SubmitButton
+                    idleText={
+                      session.role === "CHUYEN_VIEN"
+                        ? "Lưu & cập nhật hồ sơ"
+                        : "Lưu kết quả & phê duyệt"
+                    }
+                    pendingText="Đang lưu hồ sơ..."
+                    className="btn-primary"
+                    style={{ flex: 1 }}
+                  />
                 </>
               )}
             </div>
