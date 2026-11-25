@@ -82,6 +82,90 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================================
+   OVERVIEW DASHBOARD SPATIAL GRID (MINMAX(0, ...) CHỐNG TRÀN)
+   ============================================================ */
+.overview-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.75rem;
+}
+
+.overview-kpi-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.65rem 0.65rem 0;
+  border-radius: var(--radius-md);
+  transition: var(--transition-smooth);
+  min-width: 0;
+}
+
+.overview-kpi-item:hover {
+  transform: translateY(-2px);
+}
+
+.overview-kpi-value {
+  font-size: clamp(2.1rem, 2.8vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.overview-kpi-label {
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.overview-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  gap: 3.25rem;
+  align-items: start;
+}
+
+.urgent-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.9rem;
+  margin-left: -0.9rem;
+  margin-right: -0.9rem;
+  border-radius: var(--radius-md);
+  transition: var(--transition-smooth);
+  min-width: 0;
+}
+
+.urgent-row:hover {
+  background-color: rgba(18, 19, 22, 0.035);
+}
+
+@media (max-width: 1120px) {
+  .overview-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overview-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 8px;
